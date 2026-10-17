@@ -60,7 +60,6 @@ function mockUser() {
 
 beforeEach(() => {
   vi.unstubAllEnvs();
-  vi.stubEnv('CLOUD_MODE', '');
   parseSecureTokenMock.mockReset();
   getUserMock.mockReset();
   getApiKeyByHashMock.mockReset();
@@ -138,19 +137,6 @@ describe('checkAuth api keys', () => {
     }
 
     expect(getApiKeyByHashMock).not.toHaveBeenCalled();
-  });
-
-  test('ignores api keys in cloud mode', async () => {
-    vi.stubEnv('CLOUD_MODE', '1');
-    mockApiKey();
-    mockUser();
-    parseSecureTokenMock.mockReturnValue(null);
-
-    const result = await checkAuth(apiKeyRequest());
-
-    expect(result).toBeNull();
-    expect(getApiKeyByHashMock).not.toHaveBeenCalled();
-    expect(parseSecureTokenMock).toHaveBeenCalled();
   });
 
   test('updates lastUsedAt when stale', async () => {

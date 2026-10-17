@@ -6,7 +6,7 @@ import { createSecureToken, parseSecureToken } from '@/lib/jwt';
 import prisma from '@/lib/prisma';
 import redis from '@/lib/redis';
 import { parseRequest } from '@/lib/request';
-import { badRequest, json, notFound, serviceUnavailable, unauthorized } from '@/lib/response';
+import { badRequest, json, serviceUnavailable, unauthorized } from '@/lib/response';
 import { verifyBackupCode } from '@/lib/two-factor/backup-codes';
 import {
   decryptSecret,
@@ -19,10 +19,6 @@ import { verifyTotp } from '@/lib/two-factor/totp';
 import { getAllUserTeams, getUser } from '@/queries/prisma';
 
 export async function POST(request: Request) {
-  if (process.env.CLOUD_MODE) {
-    return notFound();
-  }
-
   const schema = z.union([
     z.object({ token: z.string().length(6) }).strict(),
     z.object({ backupCode: z.string().min(1) }).strict(),

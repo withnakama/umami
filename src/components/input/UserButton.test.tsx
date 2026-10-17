@@ -7,7 +7,6 @@ vi.mock('next/navigation', () => ({
 }));
 
 vi.mock('@/components/hooks', () => ({
-  useConfig: () => ({ cloudMode: false }),
   useLocale: () => ({ locale: 'en-US', saveLocale: vi.fn() }),
   useLoginQuery: () => ({ user: { username: 'admin', isAdmin: false } }),
   useMessages: () => ({

@@ -2,20 +2,14 @@ export type FetchLike = (input: string | URL, init?: RequestInit) => Promise<Res
 
 export interface UmamiClientOptions {
   /**
-   * API base URL. Defaults to Umami Cloud (`https://api.umami.is/v1`).
-   * For self-hosted installs use your instance URL plus `/api`, e.g. `https://analytics.example.com/api`.
+   * Instance URL plus `/api`, e.g. `https://analytics.example.com/api`.
    */
-  baseUrl?: string;
+  baseUrl: string;
   /**
    * Bearer token: a login token from `POST /api/auth/login`, or a
    * self-hosted API key (`umami_…`).
    */
   token?: string;
-  /**
-   * Umami Cloud API key. Sent as `x-umami-api-key`. When no `token` is provided the key is also
-   * sent as a bearer token so that self-hosted `umami_…` keys work with either option.
-   */
-  apiKey?: string;
   /** Extra headers sent with every request. */
   headers?: Record<string, string>;
   /** Custom fetch implementation (testing, alternative runtimes, in-process dispatch). */

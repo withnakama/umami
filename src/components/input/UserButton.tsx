@@ -15,12 +15,9 @@ import {
   useTheme,
 } from '@umami/react-zen';
 import { useRouter } from 'next/navigation';
-import { useConfig, useLocale, useLoginQuery, useMessages, useMobile } from '@/components/hooks';
+import { useLocale, useLoginQuery, useMessages, useMobile } from '@/components/hooks';
 import {
-  BookText,
-  ExternalLink,
   Globe,
-  LifeBuoy,
   LockKeyhole,
   LogOut,
   Moon,
@@ -29,7 +26,6 @@ import {
   SunMoon,
   UserCircle,
 } from '@/components/icons';
-import { DOCS_URL } from '@/lib/constants';
 import { languages } from '@/lib/lang';
 
 export interface UserButtonProps {
@@ -39,27 +35,15 @@ export interface UserButtonProps {
 
 export function UserButton({ showText = true, onClose }: UserButtonProps) {
   const { user } = useLoginQuery();
-  const { cloudMode } = useConfig();
   const { t, labels } = useMessages();
   const { locale, saveLocale } = useLocale();
   const { theme, setTheme } = useTheme();
   const { isMobile } = useMobile();
   const router = useRouter();
 
-  const getUrl = (url: string) => {
-    return cloudMode ? `${process.env.cloudUrl}${url}` : url;
-  };
-
-  const handleNavigate = (url: string, target?: string) => {
+  const handleNavigate = (url: string) => {
     onClose?.();
-
-    if (target) {
-      window.open(url, target);
-    } else if (url.startsWith('http')) {
-      window.location.href = url;
-    } else {
-      router.push(url);
-    }
+    router.push(url);
   };
 
   const handleSelectLocale = (key: string) => {
@@ -78,27 +62,12 @@ export function UserButton({ showText = true, onClose }: UserButtonProps) {
   }));
 
   const items = [
-    cloudMode && {
-      id: 'docs',
-      label: t(labels.documentation),
-      path: DOCS_URL,
-      icon: <BookText />,
-      target: '_blank',
-      external: true,
+    user.isAdmin && {
+      id: 'admin',
+      label: t(labels.admin),
+      path: '/admin',
+      icon: <LockKeyhole />,
     },
-    cloudMode && {
-      id: 'support',
-      label: t(labels.support),
-      path: getUrl('/settings/support'),
-      icon: <LifeBuoy />,
-    },
-    !cloudMode &&
-      user.isAdmin && {
-        id: 'admin',
-        label: t(labels.admin),
-        path: '/admin',
-        icon: <LockKeyhole />,
-      },
     {
       id: 'separator',
       separator: true,
@@ -106,7 +75,7 @@ export function UserButton({ showText = true, onClose }: UserButtonProps) {
     {
       id: 'logout',
       label: t(labels.logout),
-      path: getUrl('/logout'),
+      path: '/logout',
       icon: <LogOut />,
     },
   ].filter(Boolean);
@@ -148,7 +117,7 @@ export function UserButton({ showText = true, onClose }: UserButtonProps) {
       <Popover side="top" align="start">
         <Column minWidth="200px">
           <Menu>
-            <MenuItem id="settings" onAction={() => handleNavigate(getUrl('/settings'))}>
+            <MenuItem id="settings" onAction={() => handleNavigate('/settings')}>
               <Row alignItems="center" gap>
                 <Icon>
                   <Settings />
@@ -213,21 +182,16 @@ export function UserButton({ showText = true, onClose }: UserButtonProps) {
                 </Menu>
               </Popover>
             </SubmenuTrigger>
-            {items.map(({ id, path, label, icon, separator, target, external }: any) => {
+            {items.map(({ id, path, label, icon, separator }: any) => {
               if (separator) {
                 return <MenuSeparator key={id} />;
               }
 
               return (
-                <MenuItem key={id} id={id} onAction={() => handleNavigate(path, target)}>
+                <MenuItem key={id} id={id} onAction={() => handleNavigate(path)}>
                   <Row alignItems="center" gap>
                     <Icon>{icon}</Icon>
                     <Text>{label}</Text>
-                    {external && (
-                      <Icon color="muted" size="sm">
-                        <ExternalLink />
-                      </Icon>
-                    )}
                   </Row>
                 </MenuItem>
               );

@@ -19,10 +19,6 @@ export function WebsiteTrackingCode({
     config?.trackerScriptName?.split(',')?.map((n: string) => n.trim())?.[0] || SCRIPT_NAME;
 
   const getUrl = (scriptName: string) => {
-    if (config?.cloudMode) {
-      return `${process.env.cloudUrl}/${scriptName}`;
-    }
-
     return `${hostUrl || window?.location?.origin || ''}${
       process.env.basePath || ''
     }/${scriptName}`;

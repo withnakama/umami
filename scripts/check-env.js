@@ -21,7 +21,3 @@ function checkMissing(vars) {
 if (!process.env.SKIP_DB_CHECK) {
   checkMissing(['DATABASE_URL', 'APP_SECRET']);
 }
-
-if (process.env.CLOUD_URL) {
-  checkMissing(['CLOUD_URL', 'REDIS_URL']);
-}

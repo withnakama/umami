@@ -1,24 +1,13 @@
 import { beforeEach, describe, expect, test, vi } from 'vitest';
 import { deleteWebsite, resetWebsite } from './website';
 
-const { transactionMock, redisDelMock, redisSetMock } = vi.hoisted(() => ({
+const { transactionMock } = vi.hoisted(() => ({
   transactionMock: vi.fn(),
-  redisDelMock: vi.fn(),
-  redisSetMock: vi.fn(),
 }));
 
 vi.mock('@/lib/prisma', () => ({
   default: {
     transaction: transactionMock,
-  },
-}));
-
-vi.mock('@/lib/redis', () => ({
-  default: {
-    client: {
-      del: redisDelMock,
-      set: redisSetMock,
-    },
   },
 }));
 
@@ -108,9 +97,6 @@ function createDeleteTx(calls: string[]) {
 describe('website delete dependencies', () => {
   beforeEach(() => {
     transactionMock.mockReset();
-    redisDelMock.mockReset();
-    redisSetMock.mockReset();
-    delete process.env.CLOUD_MODE;
     process.env.DATABASE_URL = 'file:./umami.db';
   });
 

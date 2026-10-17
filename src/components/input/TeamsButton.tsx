@@ -26,28 +26,10 @@ export function TeamsButton() {
   const selectedKeys = new Set([teamId || 'user']);
   const label = teamId ? team?.name : user.username;
 
-  const cloudMode = !!process.env.cloudMode;
-
-  const getUrl = (url: string) => {
-    return cloudMode ? `${process.env.cloudUrl}${url}` : url;
-  };
-
-  const handleNavigate = (url: string) => {
-    if (cloudMode) {
-      window.location.href = url;
-    } else {
-      router.push(url);
-    }
-  };
-
   const handleAction = async (key: Key) => {
     if (key === 'user') {
       removeItem(LAST_TEAM_CONFIG);
-      if (cloudMode) {
-        window.location.href = '/';
-      } else {
-        router.push('/');
-      }
+      router.push('/');
     }
   };
 
@@ -78,14 +60,14 @@ export function TeamsButton() {
         <MenuSeparator />
         <MenuSection title={t(labels.teams)}>
           {user?.teams?.map(({ id, name }) => (
-            <MenuItem key={id} id={id} onAction={() => handleNavigate(getUrl(`/teams/${id}`))}>
+            <MenuItem key={id} id={id} onAction={() => router.push(`/teams/${id}`)}>
               <IconLabel icon={<Users />}>
                 <Text wrap="nowrap">{name}</Text>
               </IconLabel>
             </MenuItem>
           ))}
           <MenuSeparator />
-          <MenuItem id="manage-teams" onAction={() => handleNavigate(getUrl('/settings/teams'))}>
+          <MenuItem id="manage-teams" onAction={() => router.push('/settings/teams')}>
             <Row alignItems="center" justifyContent="space-between" gap width="100%">
               <Text align="center">Manage teams</Text>
               <Icon>

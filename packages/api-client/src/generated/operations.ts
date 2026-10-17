@@ -1405,14 +1405,6 @@ export const operations = {
     queryParams: [],
     hasBody: false,
   },
-  getSubscription: {
-    operationId: 'getSubscription',
-    method: 'get',
-    path: '/api/auth/subscription',
-    pathParams: [],
-    queryParams: ['teamId'],
-    hasBody: false,
-  },
   getTeam: {
     operationId: 'getTeam',
     method: 'get',
@@ -2971,14 +2963,6 @@ export const operations = {
     queryParams: [],
     hasBody: true,
   },
-  sso: {
-    operationId: 'sso',
-    method: 'post',
-    path: '/api/auth/sso',
-    pathParams: [],
-    queryParams: [],
-    hasBody: false,
-  },
   transferWebsite: {
     operationId: 'transferWebsite',
     method: 'post',
@@ -4070,18 +4054,6 @@ export abstract class GeneratedUmamiClient {
   }
 
   /**
-   * Get subscription details
-   * Returns subscription and feature availability for the current user or a specified team the user can access.
-   * `GET /api/auth/subscription`
-   */
-  getSubscription(
-    input?: OperationInput<'getSubscription'>,
-    options?: RequestOptions,
-  ): Promise<OperationOutput<'getSubscription'>> {
-    return this.execute('getSubscription', input, options);
-  }
-
-  /**
    * Get a team
    * Returns the specified team's details, including its members.
    * `GET /api/teams/{teamId}`
@@ -4911,15 +4883,6 @@ export abstract class GeneratedUmamiClient {
    */
   send(input: OperationInput<'send'>, options?: RequestOptions): Promise<OperationOutput<'send'>> {
     return this.execute('send', input, options);
-  }
-
-  /**
-   * Create a single sign-on token
-   * Returns the authenticated user and a new token valid for 24 hours. Requires Redis-backed authentication.
-   * `POST /api/auth/sso`
-   */
-  sso(input?: OperationInput<'sso'>, options?: RequestOptions): Promise<OperationOutput<'sso'>> {
-    return this.execute('sso', input, options);
   }
 
   /**

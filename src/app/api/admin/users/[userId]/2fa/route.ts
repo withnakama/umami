@@ -1,16 +1,12 @@
 import { z } from 'zod';
 import prisma from '@/lib/prisma';
 import { parseRequest } from '@/lib/request';
-import { json, notFound, serviceUnavailable, unauthorized } from '@/lib/response';
+import { json, serviceUnavailable, unauthorized } from '@/lib/response';
 import { getTwoFactorConfigurationError, isTwoFactorConfigured } from '@/lib/two-factor/crypto';
-import { updateUser } from '@/queries/prisma/user';
 import { canEnforceTwoFactorAuthForUser } from '@/permissions';
+import { updateUser } from '@/queries/prisma/user';
 
 export async function GET(request: Request, { params }: { params: Promise<{ userId: string }> }) {
-  if (process.env.CLOUD_MODE) {
-    return notFound();
-  }
-
   const { auth, error } = await parseRequest(request);
 
   if (error) {
@@ -29,10 +25,6 @@ export async function GET(request: Request, { params }: { params: Promise<{ user
 }
 
 export async function POST(request: Request, { params }: { params: Promise<{ userId: string }> }) {
-  if (process.env.CLOUD_MODE) {
-    return notFound();
-  }
-
   const schema = z.object({ required: z.boolean() });
 
   const { auth, body, error } = await parseRequest(request, schema);
@@ -57,11 +49,10 @@ export async function POST(request: Request, { params }: { params: Promise<{ use
   return json({ ok: true, userId: user.id, twoFactorRequired: required });
 }
 
-export async function DELETE(request: Request, { params }: { params: Promise<{ userId: string }> }) {
-  if (process.env.CLOUD_MODE) {
-    return notFound();
-  }
-
+export async function DELETE(
+  request: Request,
+  { params }: { params: Promise<{ userId: string }> },
+) {
   const { auth, error } = await parseRequest(request);
 
   if (error) {

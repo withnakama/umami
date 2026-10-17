@@ -4,7 +4,6 @@ import {
   hashApiKey,
   isApiKey,
   isApiKeyBlockedPath,
-  isApiKeyEnabled,
 } from '@/lib/api-key';
 import {
   PARTIAL_AUTH_TOKEN_TYPE,
@@ -71,7 +70,7 @@ export async function checkApiKeyAuth(request: Request, token: string) {
 export async function checkAuth(request: Request) {
   const token = getBearerToken(request);
 
-  if (isApiKeyEnabled() && isApiKey(token)) {
+  if (isApiKey(token)) {
     return checkApiKeyAuth(request, token);
   }
 

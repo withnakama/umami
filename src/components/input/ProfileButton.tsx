@@ -26,13 +26,12 @@ export function ProfileButton() {
       path: renderUrl('/settings/profile'),
       icon: <UserCircle />,
     },
-    user.isAdmin &&
-      !process.env.cloudMode && {
-        id: 'admin',
-        label: t(labels.admin),
-        path: '/admin',
-        icon: <LockKeyhole />,
-      },
+    user.isAdmin && {
+      id: 'admin',
+      label: t(labels.admin),
+      path: '/admin',
+      icon: <LockKeyhole />,
+    },
     {
       id: 'logout',
       label: t(labels.logout),

@@ -97,7 +97,7 @@ function checkEnvironment(): void {
   }
 
   if (process.env.RAILWAY_ENVIRONMENT) {
-    console.error('\nError: db:seed cannot run in cloud environments.');
+    console.error('\nError: db:seed cannot run in Railway environments.');
     console.error('This script is only for local development and testing.\n');
     process.exit(1);
   }

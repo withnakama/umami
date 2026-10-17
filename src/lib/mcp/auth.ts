@@ -1,5 +1,5 @@
 import type { AuthInfo } from '@umami/mcp';
-import { isApiKey, isApiKeyEnabled } from '@/lib/api-key';
+import { isApiKey } from '@/lib/api-key';
 import { checkApiKeyAuth, getBearerToken } from '@/lib/auth';
 
 export type McpAuthResult =
@@ -19,7 +19,7 @@ export async function authenticateMcpRequest(request: Request): Promise<McpAuthR
     };
   }
 
-  if (!isApiKeyEnabled() || !isApiKey(token)) {
+  if (!isApiKey(token)) {
     return { ok: false, status: 401, error: 'invalid_token', description: 'Invalid API key.' };
   }
 

@@ -18,8 +18,6 @@ export const OPERATION_ID_OVERRIDES: Record<string, string> = {
 
   // Auth
   'POST /api/auth/logout': 'logout',
-  'POST /api/auth/sso': 'sso',
-  'GET /api/auth/subscription': 'getSubscription',
   'POST /api/auth/verify': 'verify',
 
   // Two-factor authentication

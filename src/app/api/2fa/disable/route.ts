@@ -1,19 +1,19 @@
 import { z } from 'zod';
+import { checkPassword } from '@/lib/password';
 import prisma from '@/lib/prisma';
 import { parseRequest } from '@/lib/request';
-import { badRequest, forbidden, json, notFound, serviceUnavailable } from '@/lib/response';
-import { decryptSecret, getTwoFactorConfigurationError, isTwoFactorConfigured } from '@/lib/two-factor/crypto';
+import { badRequest, forbidden, json, serviceUnavailable } from '@/lib/response';
+import {
+  decryptSecret,
+  getTwoFactorConfigurationError,
+  isTwoFactorConfigured,
+} from '@/lib/two-factor/crypto';
 import { checkRateLimit, recordFailedAttempt, resetRateLimit } from '@/lib/two-factor/rate-limit';
 import { isOtpReplayed, markOtpUsed } from '@/lib/two-factor/replay-prevention';
 import { verifyTotp } from '@/lib/two-factor/totp';
-import { checkPassword } from '@/lib/password';
 import { getUser } from '@/queries/prisma/user';
 
 export async function POST(request: Request) {
-  if (process.env.CLOUD_MODE) {
-    return notFound();
-  }
-
   const schema = z.object({
     password: z.string(),
     token: z.string().length(6),

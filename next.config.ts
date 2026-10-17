@@ -12,8 +12,6 @@ const isProd = process.env.NODE_ENV === 'production';
 
 const apiUrl = process.env.API_URL || '';
 const basePath = process.env.BASE_PATH || '';
-const cloudMode = process.env.CLOUD_MODE || '';
-const cloudUrl = process.env.CLOUD_URL || '';
 const collectApiEndpoint = process.env.COLLECT_API_ENDPOINT || '';
 const corsMaxAge = process.env.CORS_MAX_AGE || '';
 const defaultCurrency = process.env.DEFAULT_CURRENCY || '';
@@ -197,13 +195,6 @@ if (trackerScriptName) {
   }
 }
 
-if (isProd && cloudMode) {
-  rewrites.push({
-    source: '/script.js',
-    destination: 'https://cloud.umami.is/script.js',
-  });
-}
-
 /** @type {import('next').NextConfig} */
 export default withNextIntl({
   reactStrictMode: false,
@@ -213,8 +204,6 @@ export default withNextIntl({
   env: {
     apiUrl,
     basePath,
-    cloudMode,
-    cloudUrl,
     currentVersion: pkg.version,
     defaultCurrency,
     defaultLocale,

@@ -3,7 +3,6 @@ import {
   Column,
   Label,
   ListItem,
-  Loading,
   Row,
   Select,
   Slider,
@@ -12,9 +11,7 @@ import {
   TextField,
 } from '@umami/react-zen';
 import { useEffect, useState } from 'react';
-import { EmptyPlaceholder } from '@/components/common/EmptyPlaceholder';
-import { useMessages, useSubscription, useUpdateQuery, useWebsite } from '@/components/hooks';
-import { Video } from '@/components/icons';
+import { useMessages, useUpdateQuery, useWebsite } from '@/components/hooks';
 import { getRecorderConfig, type RecorderConfig } from '@/lib/recorder';
 
 const RECORDER_NAME = 'recorder.js';
@@ -22,7 +19,6 @@ const RECORDER_NAME = 'recorder.js';
 export function WebsiteReplaySettings({ websiteId }: { websiteId: string }) {
   const website = useWebsite();
   const { t, labels, messages } = useMessages();
-  const { hasFeature, cloudMode, isLoading } = useSubscription(website?.teamId);
   const { mutateAsync, touch, toast, isPending } = useUpdateQuery(`/websites/${websiteId}`);
   const config = getRecorderConfig(website?.replayConfig);
 
@@ -52,9 +48,7 @@ export function WebsiteReplaySettings({ websiteId }: { websiteId: string }) {
     config.sampleRate,
   ]);
 
-  const recorderUrl = cloudMode
-    ? `${process.env.cloudUrl}/${RECORDER_NAME}`
-    : `${window?.location?.origin || ''}${process.env.basePath || ''}/${RECORDER_NAME}`;
+  const recorderUrl = `${window?.location?.origin || ''}${process.env.basePath || ''}/${RECORDER_NAME}`;
 
   const recorderCode = `<script defer src="${recorderUrl}" data-website-id="${websiteId}"></script>`;
   const sectionLabel = `${t(labels.replays)} & ${t(labels.heatmaps)}`;
@@ -111,30 +105,6 @@ export function WebsiteReplaySettings({ websiteId }: { websiteId: string }) {
   const handleSave = async () => {
     await saveRecorderConfig(getNextConfig());
   };
-
-  if (isLoading) {
-    return <Loading placement="absolute" />;
-  }
-
-  if (cloudMode && !hasFeature('replays')) {
-    return (
-      <Column gap="4">
-        <Label>{sectionLabel}</Label>
-        <EmptyPlaceholder
-          icon={<Video />}
-          title={t(messages.upgradeRequired, { plan: 'Business' })}
-          description="Watch real user sessions and build heatmaps from real visitor behavior."
-        >
-          <Button
-            variant="primary"
-            onPress={() => window.open(`${process.env.cloudUrl}/settings/billing`, '_blank')}
-          >
-            {t(labels.upgrade)}
-          </Button>
-        </EmptyPlaceholder>
-      </Column>
-    );
-  }
 
   return (
     <Column gap="4">

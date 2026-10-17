@@ -7,7 +7,6 @@ export interface StdioEnvironment {
   UMAMI_URL?: string;
   UMAMI_API_URL?: string;
   UMAMI_API_TOKEN?: string;
-  UMAMI_API_KEY?: string;
   [key: string]: string | undefined;
 }
 
@@ -18,33 +17,30 @@ function trimSlashes(value: string) {
 /**
  * Resolves client options from environment variables:
  *
- * - `UMAMI_API_URL` — full API base URL (e.g. `https://api.umami.is/v1`, `https://example.com/api`).
+ * - `UMAMI_API_URL` — full API base URL (e.g. `https://example.com/api`).
  * - `UMAMI_URL` — self-hosted instance URL; `/api` is appended automatically.
  * - `UMAMI_API_TOKEN` — bearer token (login token or self-hosted API key).
- * - `UMAMI_API_KEY` — Umami Cloud API key.
  */
 export function resolveClientOptions(env: StdioEnvironment = process.env): UmamiClientOptions {
   const apiUrl = env.UMAMI_API_URL?.trim();
   const instanceUrl = env.UMAMI_URL?.trim();
   const token = env.UMAMI_API_TOKEN?.trim();
-  const apiKey = env.UMAMI_API_KEY?.trim();
-
-  if (!token && !apiKey) {
-    throw new Error(
-      'Missing credentials. Set UMAMI_API_TOKEN (self-hosted API key or login token) or UMAMI_API_KEY (Umami Cloud).',
-    );
+  if (!token) {
+    throw new Error('Missing credentials. Set UMAMI_API_TOKEN to an API key or login token.');
   }
 
-  let baseUrl: string | undefined;
+  let baseUrl: string;
 
   if (apiUrl) {
     baseUrl = trimSlashes(apiUrl);
   } else if (instanceUrl) {
     const trimmed = trimSlashes(instanceUrl);
     baseUrl = /\/api$/.test(trimmed) ? trimmed : `${trimmed}/api`;
+  } else {
+    throw new Error('Missing server URL. Set UMAMI_URL or UMAMI_API_URL.');
   }
 
-  return { baseUrl, token, apiKey };
+  return { baseUrl, token };
 }
 
 export interface ServeStdioOptions {

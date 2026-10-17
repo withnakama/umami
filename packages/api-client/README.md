@@ -13,10 +13,6 @@ pnpm add @umami/api-client
 ```ts
 import { UmamiClient } from '@umami/api-client';
 
-// Umami Cloud
-const umami = new UmamiClient({ apiKey: process.env.UMAMI_API_KEY });
-
-// Self-hosted
 const umami = new UmamiClient({
   baseUrl: 'https://analytics.example.com/api',
   token: process.env.UMAMI_API_TOKEN, // API key (umami_…) or login token
@@ -41,9 +37,8 @@ response types, or import `OperationInput<'getWebsiteStats'>` / `OperationOutput
 
 | Option    | Description                                                                                                 |
 | --------- | ----------------------------------------------------------------------------------------------------------- |
-| `baseUrl` | API root. Defaults to `https://api.umami.is/v1`. Self-hosted: `https://your-umami/api`.                    |
+| `baseUrl` | Required API root, for example `https://your-umami/api`.                    |
 | `token`   | Bearer token: login token or self-hosted API key.                                      |
-| `apiKey`  | Umami Cloud API key (sent as `x-umami-api-key`; also sent as a bearer token when `token` is not provided). |
 | `headers` | Extra headers for every request.                                                                            |
 | `fetch`   | Custom `fetch` (tests, other runtimes, in-process dispatch).                                                |
 | `timeout` | Per-request timeout in milliseconds.                                                                        |

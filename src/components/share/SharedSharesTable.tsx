@@ -1,7 +1,7 @@
 import { Icon, Row, Text } from '@umami/react-zen';
 import type { ReactNode } from 'react';
 import { CopyButton } from '@/components/common/CopyButton';
-import { useConfig, useMessages, useMobile } from '@/components/hooks';
+import { useMessages, useMobile } from '@/components/hooks';
 import { ExternalLink } from '@/components/icons';
 
 const desktopGridTemplateColumns = 'minmax(180px, 1fr) minmax(0, 2fr) auto';
@@ -21,14 +21,9 @@ export function SharedSharesTable({
   renderActions: (row: ShareRow) => ReactNode;
 }) {
   const { t, labels } = useMessages();
-  const { cloudMode } = useConfig();
   const { isMobile } = useMobile();
 
   const getUrl = (slug: string) => {
-    if (cloudMode) {
-      return `${process.env.cloudUrl}/share/${slug}`;
-    }
-
     const origin = typeof window !== 'undefined' ? window.location.origin : '';
 
     return `${origin}${process.env.basePath || ''}/share/${slug}`;

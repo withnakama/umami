@@ -1,5 +1,6 @@
+import prisma from '@/lib/prisma';
 import { parseRequest } from '@/lib/request';
-import { badRequest, json, notFound, serviceUnavailable } from '@/lib/response';
+import { badRequest, json, serviceUnavailable } from '@/lib/response';
 import {
   encryptSecret,
   getTwoFactorConfigurationError,
@@ -10,14 +11,9 @@ import {
   generateQrCodeDataUrl,
   generateTotpSecret,
 } from '@/lib/two-factor/totp';
-import prisma from '@/lib/prisma';
 import { getUser } from '@/queries/prisma/user';
 
 export async function POST(request: Request) {
-  if (process.env.CLOUD_MODE) {
-    return notFound();
-  }
-
   const { auth, error } = await parseRequest(request);
 
   if (error) {

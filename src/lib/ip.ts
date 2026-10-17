@@ -1,7 +1,6 @@
 import ipaddr from 'ipaddr.js';
 
 export const IP_ADDRESS_HEADERS = [
-  ...(process.env.CLOUD_MODE ? ['x-umami-client-ip'] : []), // Umami custom header (cloud mode only)
   'true-client-ip', // CDN
   'cf-connecting-ip', // Cloudflare
   'fastly-client-ip', // Fastly

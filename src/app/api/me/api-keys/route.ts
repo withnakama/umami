@@ -1,8 +1,8 @@
 import { z } from 'zod';
-import { generateApiKey, getApiKeyPrefix, hashApiKey, isApiKeyEnabled } from '@/lib/api-key';
+import { generateApiKey, getApiKeyPrefix, hashApiKey } from '@/lib/api-key';
 import { uuid } from '@/lib/crypto';
 import { parseRequest } from '@/lib/request';
-import { json, notFound } from '@/lib/response';
+import { json } from '@/lib/response';
 import { createApiKey, getUserApiKeys } from '@/queries/prisma/apiKey';
 
 export async function GET(request: Request) {
@@ -10,10 +10,6 @@ export async function GET(request: Request) {
 
   if (error) {
     return error();
-  }
-
-  if (!isApiKeyEnabled()) {
-    return notFound();
   }
 
   return json(await getUserApiKeys(auth.user.id));
@@ -28,10 +24,6 @@ export async function POST(request: Request) {
 
   if (error) {
     return error();
-  }
-
-  if (!isApiKeyEnabled()) {
-    return notFound();
   }
 
   const key = generateApiKey();

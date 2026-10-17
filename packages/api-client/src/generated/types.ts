@@ -290,46 +290,6 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
-  '/api/auth/sso': {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    get?: never;
-    put?: never;
-    /**
-     * Create a single sign-on token
-     * @description Returns the authenticated user and a new token valid for 24 hours. Requires Redis-backed authentication.
-     */
-    post: operations['sso'];
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  '/api/auth/subscription': {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    /**
-     * Get subscription details
-     * @description Returns subscription and feature availability for the current user or a specified team the user can access.
-     */
-    get: operations['getSubscription'];
-    put?: never;
-    post?: never;
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
   '/api/auth/verify': {
     parameters: {
       query?: never;
@@ -475,7 +435,7 @@ export interface paths {
     };
     /**
      * Get application configuration
-     * @description Returns public application settings, including deployment mode, feature availability, and tracker and resource URLs.
+     * @description Returns public application settings, including feature availability and tracker and resource URLs.
      */
     get: operations['getConfig'];
     put?: never;
@@ -4958,141 +4918,6 @@ export interface operations {
       };
     };
   };
-  sso: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    requestBody?: never;
-    responses: {
-      /** @description The operation completed successfully. */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': {
-            token: string;
-            /** @description User associated with the resource. */
-            user: unknown;
-          };
-        };
-      };
-      /** @description Unauthorized. */
-      401: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          /**
-           * @example {
-           *       "error": {
-           *         "code": "unauthorized",
-           *         "message": "Unauthorized.",
-           *         "status": 401
-           *       }
-           *     }
-           */
-          'application/json': components['schemas']['ApiError'];
-        };
-      };
-      /** @description Server error. */
-      500: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          /**
-           * @example {
-           *       "error": {
-           *         "code": "server-error",
-           *         "message": "Server error.",
-           *         "status": 500
-           *       }
-           *     }
-           */
-          'application/json': components['schemas']['ApiError'];
-        };
-      };
-    };
-  };
-  getSubscription: {
-    parameters: {
-      query?: {
-        /** @description ID of the associated team. */
-        teamId?: string;
-      };
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    requestBody?: never;
-    responses: {
-      /** @description The operation completed successfully. */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json':
-            | {
-                /** @description Error details returned when the operation fails. */
-                error: {
-                  code: string;
-                  /** @description Human-readable explanation of the result. */
-                  message: string;
-                  status: number;
-                };
-              }
-            | {
-                hasSubscription: boolean;
-                isBusiness: boolean;
-                isNoBilling: boolean;
-                isPro: boolean;
-                unlimitedWebsites: boolean;
-              };
-        };
-      };
-      /** @description Bad request. */
-      400: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          /**
-           * @example {
-           *       "error": {
-           *         "code": "bad-request",
-           *         "message": "Bad request.",
-           *         "status": 400
-           *       }
-           *     }
-           */
-          'application/json': components['schemas']['ApiError'];
-        };
-      };
-      /** @description Unauthorized. */
-      401: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          /**
-           * @example {
-           *       "error": {
-           *         "code": "unauthorized",
-           *         "message": "Unauthorized.",
-           *         "status": 401
-           *       }
-           *     }
-           */
-          'application/json': components['schemas']['ApiError'];
-        };
-      };
-    };
-  };
   verify: {
     parameters: {
       query?: never;
@@ -6134,7 +5959,6 @@ export interface operations {
         };
         content: {
           'application/json': {
-            cloudMode: boolean;
             faviconUrl: string;
             linksUrl: string;
             pixelsUrl: string;

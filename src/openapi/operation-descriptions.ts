@@ -87,16 +87,6 @@ export const operationDescriptions: Record<string, OperationDescription> = {
     description:
       'Ends the current authentication session by removing its stored token when Redis-backed sessions are enabled.',
   },
-  'POST /api/auth/sso': {
-    summary: 'Create a single sign-on token',
-    description:
-      'Returns the authenticated user and a new token valid for 24 hours. Requires Redis-backed authentication.',
-  },
-  'GET /api/auth/subscription': {
-    summary: 'Get subscription details',
-    description:
-      'Returns subscription and feature availability for the current user or a specified team the user can access.',
-  },
   'POST /api/auth/verify': {
     summary: 'Verify the current sign-in',
     description:
@@ -146,7 +136,7 @@ export const operationDescriptions: Record<string, OperationDescription> = {
   'GET /api/config': {
     summary: 'Get application configuration',
     description:
-      'Returns public application settings, including deployment mode, feature availability, and tracker and resource URLs.',
+      'Returns public application settings, including feature availability and tracker and resource URLs.',
   },
   'GET /api/dashboard': {
     summary: 'Get my dashboard',

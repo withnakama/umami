@@ -2,7 +2,6 @@ import { z } from 'zod';
 import type { Prisma, Website } from '@/generated/prisma/client';
 import { ROLES } from '@/lib/constants';
 import prisma from '@/lib/prisma';
-import redis from '@/lib/redis';
 import { sanitizeSortFilters } from '@/lib/sort';
 import type { PageResult, QueryFilters } from '@/lib/types';
 
@@ -200,8 +199,6 @@ export async function updateWebsite(
 
 export async function resetWebsite(websiteId: string) {
   const { transaction } = prisma;
-  const cloudMode = !!process.env.CLOUD_MODE;
-
   return transaction(
     async tx => {
       await deleteWebsiteDependentData(tx, websiteId);
@@ -218,19 +215,11 @@ export async function resetWebsite(websiteId: string) {
     {
       timeout: 30000,
     },
-  ).then(async data => {
-    if (cloudMode) {
-      await redis.client.set(`website:${websiteId}`, data);
-    }
-
-    return data;
-  });
+  );
 }
 
 export async function deleteWebsite(websiteId: string) {
   const { transaction } = prisma;
-  const cloudMode = !!process.env.CLOUD_MODE;
-
   return transaction(
     async tx => {
       await deleteWebsiteDependentData(tx, websiteId);
@@ -251,47 +240,14 @@ export async function deleteWebsite(websiteId: string) {
         where: { entityId: websiteId },
       });
 
-      const website = cloudMode
-        ? await tx.website.update({
-            data: {
-              deletedAt: new Date(),
-            },
-            where: { id: websiteId },
-          })
-        : await tx.website.delete({
-            where: { id: websiteId },
-          });
+      const website = await tx.website.delete({ where: { id: websiteId } });
 
       return website;
     },
     {
       timeout: 30000,
     },
-  ).then(async data => {
-    if (cloudMode) {
-      await redis.client.del(`website:${websiteId}`);
-    }
-
-    return data;
-  });
-}
-
-export async function getWebsiteCount(userId: string) {
-  return prisma.client.website.count({
-    where: {
-      userId,
-      deletedAt: null,
-    },
-  });
-}
-
-export async function getTeamWebsiteCount(teamId: string) {
-  return prisma.client.website.count({
-    where: {
-      teamId,
-      deletedAt: null,
-    },
-  });
+  );
 }
 
 export async function attachShareIdToWebsite(website: Website) {

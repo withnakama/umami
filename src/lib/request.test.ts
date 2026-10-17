@@ -9,7 +9,6 @@ vi.hoisted(() => {
 });
 
 vi.mock('@/lib/load', () => ({
-  fetchAccount: vi.fn(),
   fetchWebsite: vi.fn(),
 }));
 

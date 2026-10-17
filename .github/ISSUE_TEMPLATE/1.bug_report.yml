@@ -12,9 +12,7 @@ body:
       label: Database
       description: What database are you using?
       options:
-        - PostgreSQL
-        - MySQL
-        - Umami Cloud
+        - SQLite
     validations:
       required: true
   - type: textarea

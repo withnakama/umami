@@ -1,9 +1,8 @@
-import { startOfMonth, subMonths } from 'date-fns';
 import { z } from 'zod';
 import { checkAuth } from '@/lib/auth';
 import { DEFAULT_PAGE_SIZE, FILTER_COLUMNS, OPERATORS } from '@/lib/constants';
 import { getAllowedUnits, getMinimumUnit, maxDate, parseDateRange } from '@/lib/date';
-import { fetchAccount, fetchWebsite } from '@/lib/load';
+import { fetchWebsite } from '@/lib/load';
 import {
   filtersArrayToObject,
   parseSessionPropertyFilters,
@@ -98,15 +97,6 @@ export function getRequestFilters(query: Record<string, any>) {
 
 export async function setWebsiteDate(websiteId: string, data: Record<string, any>) {
   const website = await fetchWebsite(websiteId);
-  const cloudMode = !!process.env.CLOUD_MODE;
-
-  if (cloudMode && website && !website.teamId) {
-    const account = await fetchAccount(website.userId);
-
-    if (!account?.hasSubscription) {
-      data.startDate = maxDate(data.startDate, startOfMonth(subMonths(new Date(), 6)));
-    }
-  }
 
   if (website?.resetAt) {
     data.startDate = maxDate(data.startDate, new Date(website?.resetAt));

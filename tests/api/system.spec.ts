@@ -13,7 +13,6 @@ test.describe('System', () => {
 
     expect(response.status).toBe(200);
     expect(response.body).toMatchObject({
-      cloudMode: false,
       privateMode: false,
       sessionDeletionEnabled: true,
     });

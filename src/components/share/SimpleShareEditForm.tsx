@@ -11,7 +11,7 @@ import {
   TextField,
 } from '@umami/react-zen';
 import { useEffect, useState } from 'react';
-import { useApi, useConfig, useMessages, useModified } from '@/components/hooks';
+import { useApi, useMessages, useModified } from '@/components/hooks';
 import { ThemeModeSelector } from '@/components/input/ThemeModeSelector';
 
 export function SimpleShareEditForm({
@@ -24,7 +24,6 @@ export function SimpleShareEditForm({
   onClose?: () => void;
 }) {
   const { t, labels, getErrorMessage } = useMessages();
-  const config = useConfig();
   const { get, post } = useApi();
   const { touch } = useModified();
   const { modified } = useModified('shares');
@@ -34,7 +33,7 @@ export function SimpleShareEditForm({
   const [error, setError] = useState<any>(null);
 
   const getUrl = (slug: string) => {
-    return `${config?.cloudMode ? process.env.cloudUrl : window?.location.origin}${process.env.basePath || ''}/share/${slug}`;
+    return `${window?.location.origin}${process.env.basePath || ''}/share/${slug}`;
   };
 
   useEffect(() => {

@@ -1,6 +1,5 @@
 import { Prisma } from '@/generated/prisma/client';
 import { ROLES } from '@/lib/constants';
-import { getRandomChars } from '@/lib/generate';
 import prisma from '@/lib/prisma';
 import redis from '@/lib/redis';
 import { sanitizeSortFilters } from '@/lib/sort';
@@ -120,7 +119,6 @@ export async function updateUser(userId: string, data: Prisma.UserUpdateInput) {
 
 export async function deleteUser(userId: string) {
   const { client, transaction } = prisma;
-  const cloudMode = !!process.env.CLOUD_MODE;
 
   const websites = await client.website.findMany({
     where: { userId },
@@ -145,7 +143,7 @@ export async function deleteUser(userId: string) {
 
   const teamIds = teams.map(a => a.id);
 
-  const ownedFilter = cloudMode ? { userId } : { OR: [{ userId }, { teamId: { in: teamIds } }] };
+  const ownedFilter = { OR: [{ userId }, { teamId: { in: teamIds } }] };
 
   const [links, pixels, boards] = await Promise.all([
     client.link.findMany({
@@ -171,40 +169,6 @@ export async function deleteUser(userId: string) {
       ]);
     }
   };
-
-  if (cloudMode) {
-    return transaction([
-      client.website.updateMany({
-        data: {
-          deletedAt: new Date(),
-        },
-        where: { id: { in: websiteIds } },
-      }),
-      client.user.update({
-        data: {
-          username: getRandomChars(32),
-          deletedAt: new Date(),
-        },
-        where: {
-          id: userId,
-        },
-      }),
-      client.share.deleteMany({ where: { entityId: { in: entityIds } } }),
-      // deletedAt: null avoids restamping rows that were already soft-deleted earlier.
-      client.link.updateMany({
-        data: { deletedAt: new Date() },
-        where: { userId, deletedAt: null },
-      }),
-      client.pixel.updateMany({
-        data: { deletedAt: new Date() },
-        where: { userId, deletedAt: null },
-      }),
-      client.board.deleteMany({ where: { userId } }),
-    ]).then(async result => {
-      await invalidateRedis();
-      return result;
-    });
-  }
 
   return transaction([
     client.eventData.deleteMany({

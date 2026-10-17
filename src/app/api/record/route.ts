@@ -6,7 +6,6 @@ import { corsPreflight, withCorsHeaders } from '@/lib/cors';
 import { secret } from '@/lib/crypto';
 import { getClientInfo, hasBlockedIp } from '@/lib/detect';
 import { parseToken } from '@/lib/jwt';
-import { fetchAccount, fetchTeam } from '@/lib/load';
 import { getRecorderConfig } from '@/lib/recorder';
 import { getReplayEventCount } from '@/lib/replay';
 import { parseRequest } from '@/lib/request';
@@ -157,18 +156,6 @@ export async function POST(request: Request) {
 
     if (!website.recorderEnabled) {
       return withCorsHeaders(json({ ok: false, reason: 'recorder_disabled' }));
-    }
-
-    if (process.env.CLOUD_MODE) {
-      const account = website.teamId
-        ? await fetchTeam(website.teamId)
-        : website.userId
-          ? await fetchAccount(website.userId)
-          : null;
-
-      if (!account?.isBusiness && !account?.isNoBilling) {
-        return withCorsHeaders(forbidden({ message: 'Business subscription required.' }));
-      }
     }
 
     // Client info for bot/IP checks

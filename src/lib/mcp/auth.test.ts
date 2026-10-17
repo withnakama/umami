@@ -17,8 +17,6 @@ function request(token?: string) {
 }
 
 beforeEach(() => {
-  vi.unstubAllEnvs();
-  vi.stubEnv('CLOUD_MODE', '');
   checkApiKeyAuthMock.mockReset();
 });
 
@@ -34,16 +32,13 @@ describe('authenticateMcpRequest', () => {
     expect(response.headers.get('cache-control')).toBe('no-store');
   });
 
-  test.each(['not-a-token', 'not-a-key'])(
-    'rejects non-API-key credentials: %s',
-    async token => {
-      await expect(authenticateMcpRequest(request(token))).resolves.toMatchObject({
-        ok: false,
-        status: 401,
-      });
-      expect(checkApiKeyAuthMock).not.toHaveBeenCalled();
-    },
-  );
+  test.each(['not-a-token', 'not-a-key'])('rejects non-API-key credentials: %s', async token => {
+    await expect(authenticateMcpRequest(request(token))).resolves.toMatchObject({
+      ok: false,
+      status: 401,
+    });
+    expect(checkApiKeyAuthMock).not.toHaveBeenCalled();
+  });
 
   test('accepts self-hosted API keys and preserves owner identity', async () => {
     checkApiKeyAuthMock.mockResolvedValue({
@@ -71,14 +66,5 @@ describe('authenticateMcpRequest', () => {
       status: 401,
       error: 'invalid_token',
     });
-  });
-
-  test('rejects self-hosted keys in Cloud mode', async () => {
-    vi.stubEnv('CLOUD_MODE', '1');
-    await expect(authenticateMcpRequest(request('umami_key'))).resolves.toMatchObject({
-      ok: false,
-      status: 401,
-    });
-    expect(checkApiKeyAuthMock).not.toHaveBeenCalled();
   });
 });

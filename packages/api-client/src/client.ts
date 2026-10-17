@@ -6,11 +6,9 @@ import {
   operations,
 } from './generated/operations';
 import {
-  API_KEY_HEADER,
   buildAuthHeaders,
   buildPath,
   buildUrl,
-  DEFAULT_BASE_URL,
   resolveFetch,
   sendRequest,
   splitInput,
@@ -39,7 +37,7 @@ function positional<K extends OperationId>(
  * Typed client for the Umami API. Every method corresponds to an OpenAPI `operationId`.
  *
  * ```ts
- * const umami = new UmamiClient({ baseUrl: 'https://api.umami.is/v1', apiKey: process.env.UMAMI_API_KEY });
+ * const umami = new UmamiClient({ baseUrl: 'https://analytics.example.com/api', token: process.env.UMAMI_API_TOKEN });
  * const stats = await umami.getWebsiteStats({ websiteId, startAt, endAt });
  * ```
  *
@@ -52,9 +50,9 @@ export class UmamiClient extends GeneratedUmamiClient {
   readonly timeout?: number;
   private readonly fetchImpl: FetchLike;
 
-  constructor(options: UmamiClientOptions = {}) {
+  constructor(options: UmamiClientOptions) {
     super();
-    this.baseUrl = trimSlashes(options.baseUrl || DEFAULT_BASE_URL);
+    this.baseUrl = trimSlashes(options.baseUrl);
     this.headers = { ...buildAuthHeaders(options), ...options.headers };
     this.timeout = options.timeout;
     this.fetchImpl = resolveFetch(options.fetch);
@@ -62,7 +60,7 @@ export class UmamiClient extends GeneratedUmamiClient {
 
   /** Returns a copy of this client using a different bearer token. */
   withToken(token: string) {
-    const { authorization: _auth, [API_KEY_HEADER]: _key, ...headers } = this.headers;
+    const { authorization: _auth, ...headers } = this.headers;
 
     return new UmamiClient({
       baseUrl: this.baseUrl,

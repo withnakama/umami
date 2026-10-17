@@ -22,7 +22,7 @@ export function App({ children }) {
   const config = useConfig();
   const { pathname, router, teamId } = useNavigation();
   const { isLoading: isTeamLoading, error: teamError } = useTeamQuery(teamId);
-  const { data: twoFactorStatus } = useTwoFactorStatusQuery(!!user && !config?.cloudMode);
+  const { data: twoFactorStatus } = useTwoFactorStatusQuery(!!user);
   const needsTwoFactorSetup = !!(twoFactorStatus?.isRequired && !twoFactorStatus?.isEnabled);
 
   useEffect(() => {
@@ -45,9 +45,7 @@ export function App({ children }) {
   }
 
   if (error) {
-    window.location.href = config.cloudMode
-      ? `${process.env.cloudUrl}/login`
-      : `${process.env.basePath || ''}/login`;
+    window.location.href = `${process.env.basePath || ''}/login`;
     return null;
   }
 

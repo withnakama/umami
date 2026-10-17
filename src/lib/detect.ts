@@ -10,16 +10,6 @@ import { safeDecodeURIComponent } from '@/lib/url';
 const MAXMIND = 'maxmind';
 
 const PROVIDER_HEADERS = [
-  // Umami custom headers (cloud mode only)
-  ...(process.env.CLOUD_MODE
-    ? [
-        {
-          countryHeader: 'x-umami-client-country',
-          regionHeader: 'x-umami-client-region',
-          cityHeader: 'x-umami-client-city',
-        },
-      ]
-    : []),
   // Cloudflare headers
   {
     countryHeader: 'cf-ipcountry',

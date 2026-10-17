@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, test, vi } from 'vitest';
+import { describe, expect, test } from 'vitest';
 import {
   API_KEY_PREFIX,
   generateApiKey,
@@ -6,12 +6,7 @@ import {
   hashApiKey,
   isApiKey,
   isApiKeyBlockedPath,
-  isApiKeyEnabled,
 } from './api-key';
-
-afterEach(() => {
-  vi.unstubAllEnvs();
-});
 
 describe('generateApiKey', () => {
   test('produces umami_ followed by 32 base62 characters', () => {
@@ -71,19 +66,5 @@ describe('isApiKeyBlockedPath', () => {
     expect(isApiKeyBlockedPath('/api/websites')).toBe(false);
     expect(isApiKeyBlockedPath('/api/websites/abc/stats')).toBe(false);
     expect(isApiKeyBlockedPath('/api/authors')).toBe(false);
-  });
-});
-
-describe('isApiKeyEnabled', () => {
-  test('is disabled in cloud mode', () => {
-    vi.stubEnv('CLOUD_MODE', '1');
-
-    expect(isApiKeyEnabled()).toBe(false);
-  });
-
-  test('is enabled when CLOUD_MODE is unset', () => {
-    vi.stubEnv('CLOUD_MODE', '');
-
-    expect(isApiKeyEnabled()).toBe(true);
   });
 });

@@ -43,8 +43,8 @@ describe('buildPath', () => {
 describe('buildUrl', () => {
   test('strips the /api prefix and joins with the base URL', () => {
     expect(stripApiPrefix('/api/websites')).toBe('/websites');
-    expect(buildUrl('https://api.umami.is/v1/', '/api/websites', {}).toString()).toBe(
-      'https://api.umami.is/v1/websites',
+    expect(buildUrl('https://example.com/api/', '/api/websites', {}).toString()).toBe(
+      'https://example.com/api/websites',
     );
     expect(buildUrl('https://example.com/api', '/api/websites', {}).toString()).toBe(
       'https://example.com/api/websites',
@@ -75,20 +75,6 @@ describe('buildUrl', () => {
 describe('buildAuthHeaders', () => {
   test('uses bearer authentication for tokens', () => {
     expect(buildAuthHeaders({ token: 'abc' })).toEqual({ authorization: 'Bearer abc' });
-  });
-
-  test('sends API keys as both header conventions when no token is present', () => {
-    expect(buildAuthHeaders({ apiKey: 'umami_123' })).toEqual({
-      'x-umami-api-key': 'umami_123',
-      authorization: 'Bearer umami_123',
-    });
-  });
-
-  test('prefers the explicit token as bearer when both are present', () => {
-    expect(buildAuthHeaders({ apiKey: 'k', token: 't' })).toEqual({
-      'x-umami-api-key': 'k',
-      authorization: 'Bearer t',
-    });
   });
 });
 

@@ -4,7 +4,7 @@ import { LoginPage } from './LoginPage';
 export const dynamic = 'force-dynamic';
 
 export default async function () {
-  if (process.env.DISABLE_LOGIN || process.env.CLOUD_MODE) {
+  if (process.env.DISABLE_LOGIN) {
     return null;
   }
 

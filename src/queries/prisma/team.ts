@@ -105,17 +105,6 @@ export async function getAllUserTeams(userId: string) {
   });
 }
 
-export async function getUserOwnedTeamCount(userId: string) {
-  return prisma.client.team.count({
-    where: {
-      deletedAt: null,
-      members: {
-        some: { userId, role: ROLES.teamOwner },
-      },
-    },
-  });
-}
-
 export async function getTeamOwner(teamId: string) {
   return prisma.client.teamUser.findFirst({
     where: { teamId, role: ROLES.teamOwner },
@@ -161,7 +150,6 @@ export async function updateTeam(teamId: string, data: Prisma.TeamUpdateInput): 
 
 export async function deleteTeam(teamId: string) {
   const { client, transaction } = prisma;
-  const cloudMode = !!process.env.CLOUD_MODE;
 
   const [links, pixels, boards] = await Promise.all([
     client.link.findMany({
@@ -187,34 +175,6 @@ export async function deleteTeam(teamId: string) {
       ]);
     }
   };
-
-  if (cloudMode) {
-    return transaction([
-      client.team.update({
-        data: {
-          deletedAt: new Date(),
-          accessCode: null,
-        },
-        where: {
-          id: teamId,
-        },
-      }),
-      client.share.deleteMany({ where: { entityId: { in: entityIds } } }),
-      // deletedAt: null avoids restamping rows that were already soft-deleted earlier.
-      client.link.updateMany({
-        data: { deletedAt: new Date() },
-        where: { teamId, deletedAt: null },
-      }),
-      client.pixel.updateMany({
-        data: { deletedAt: new Date() },
-        where: { teamId, deletedAt: null },
-      }),
-      client.board.deleteMany({ where: { teamId } }),
-    ]).then(async result => {
-      await invalidateRedis();
-      return result;
-    });
-  }
 
   return transaction([
     client.teamUser.deleteMany({

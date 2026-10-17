@@ -23,8 +23,6 @@ function deleteRequest(keyId = 'key-1') {
 }
 
 beforeEach(() => {
-  vi.unstubAllEnvs();
-  vi.stubEnv('CLOUD_MODE', '');
   parseRequestMock.mockReset();
   mocks.deleteApiKey.mockReset();
 
@@ -49,13 +47,4 @@ test('DELETE returns 404 when the key does not belong to the user', async () => 
   const response = await deleteRequest('someone-elses-key');
 
   expect(response.status).toBe(404);
-});
-
-test('DELETE returns 404 in cloud mode', async () => {
-  vi.stubEnv('CLOUD_MODE', '1');
-
-  const response = await deleteRequest();
-
-  expect(response.status).toBe(404);
-  expect(mocks.deleteApiKey).not.toHaveBeenCalled();
 });

@@ -19,8 +19,6 @@ vi.mock('@/queries/prisma/apiKey', () => ({
 const parseRequestMock = vi.mocked(parseRequest);
 
 beforeEach(() => {
-  vi.unstubAllEnvs();
-  vi.stubEnv('CLOUD_MODE', '');
   parseRequestMock.mockReset();
   mocks.createApiKey.mockReset();
   mocks.getUserApiKeys.mockReset();
@@ -41,15 +39,6 @@ test('GET returns the current user api keys', async () => {
   expect(response.status).toBe(200);
   await expect(response.json()).resolves.toEqual(keys);
   expect(mocks.getUserApiKeys).toHaveBeenCalledWith('user-1');
-});
-
-test('GET returns 404 in cloud mode', async () => {
-  vi.stubEnv('CLOUD_MODE', '1');
-
-  const response = await GET(new Request('http://localhost/api/me/api-keys'));
-
-  expect(response.status).toBe(404);
-  expect(mocks.getUserApiKeys).not.toHaveBeenCalled();
 });
 
 test('GET returns the auth error when unauthenticated', async () => {
@@ -88,13 +77,4 @@ test('POST creates a key, stores only the hash, and returns the plaintext once',
   expect(stored.keyHash).not.toBe(body.key);
   expect(stored.keyHash).toHaveLength(128);
   expect(stored).not.toHaveProperty('key');
-});
-
-test('POST returns 404 in cloud mode', async () => {
-  vi.stubEnv('CLOUD_MODE', '1');
-
-  const response = await POST(new Request('http://localhost/api/me/api-keys', { method: 'POST' }));
-
-  expect(response.status).toBe(404);
-  expect(mocks.createApiKey).not.toHaveBeenCalled();
 });

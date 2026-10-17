@@ -27,12 +27,8 @@ export async function POST(request: Request) {
   }
 
   const { id, role, createdAt } = user;
-  const cloudMode = !!process.env.CLOUD_MODE;
-
   // Check if 2FA is enabled for this user
-  const twoFactor = !cloudMode
-    ? await prisma.client.twoFactorAuth.findUnique({ where: { userId: id } })
-    : null;
+  const twoFactor = await prisma.client.twoFactorAuth.findUnique({ where: { userId: id } });
 
   if (twoFactor?.isEnabled) {
     if (!isTwoFactorConfigured()) {

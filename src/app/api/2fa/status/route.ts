@@ -10,16 +10,6 @@ export async function GET(request: Request) {
     return error();
   }
 
-  if (process.env.CLOUD_MODE) {
-    return json({
-      isEnabled: false,
-      isRequired: false,
-      requiredReason: null,
-      isConfigured: false,
-      globalRequired: false,
-    });
-  }
-
   const userId = auth.user.id;
 
   const twoFactor = await prisma.client.twoFactorAuth.findUnique({ where: { userId } });

@@ -35,7 +35,10 @@ function createClient(response: unknown = {}, options: Record<string, unknown> =
 
 describe('UmamiClient', () => {
   test('exposes a method for every generated operation', () => {
-    const client = new UmamiClient({ fetch: async () => new Response('{}') });
+    const client = new UmamiClient({
+      baseUrl: 'https://example.com/api',
+      fetch: async () => new Response('{}'),
+    });
 
     for (const operationId of Object.keys(operations)) {
       expect(typeof (client as unknown as Record<string, unknown>)[operationId]).toBe('function');
@@ -101,26 +104,6 @@ describe('UmamiClient', () => {
     expect(calls[0].url.pathname).toBe('/api/websites/w1/funnels/stats');
     expect(JSON.parse(calls[0].url.searchParams.get('steps') ?? 'null')).toEqual(steps);
     expect(calls[0].url.searchParams.get('browser1')).toBe('eq.Chrome');
-  });
-
-  test('uses the Cloud base URL and API key header by default', async () => {
-    const calls: Captured[] = [];
-    const client = new UmamiClient({
-      apiKey: 'api-key',
-      fetch: async (url, init) => {
-        calls.push({
-          url: new URL(url.toString()),
-          method: init?.method ?? 'GET',
-          headers: init?.headers as Record<string, string>,
-        });
-        return new Response('{"data":[]}', { headers: { 'content-type': 'application/json' } });
-      },
-    });
-
-    await client.listWebsites();
-
-    expect(calls[0].url.toString()).toBe('https://api.umami.is/v1/websites');
-    expect(calls[0].headers['x-umami-api-key']).toBe('api-key');
   });
 
   test('merges custom and per-request headers', async () => {

@@ -1,12 +1,11 @@
 import { Column, Label, Row } from '@umami/react-zen';
-import { useConfig, useLoginQuery, useMessages } from '@/components/hooks';
+import { useLoginQuery, useMessages } from '@/components/hooks';
 import { ROLES } from '@/lib/constants';
 import { PasswordChangeButton } from './PasswordChangeButton';
 
 export function ProfileSettings() {
   const { user } = useLoginQuery();
   const { t, labels } = useMessages();
-  const { cloudMode } = useConfig();
 
   if (!user) {
     return null;
@@ -38,14 +37,12 @@ export function ProfileSettings() {
         <Label>{t(labels.role)}</Label>
         {renderRole(role)}
       </Column>
-      {!cloudMode && (
-        <Column>
-          <Label>{t(labels.password)}</Label>
-          <Row>
-            <PasswordChangeButton />
-          </Row>
-        </Column>
-      )}
+      <Column>
+        <Label>{t(labels.password)}</Label>
+        <Row>
+          <PasswordChangeButton />
+        </Row>
+      </Column>
     </Column>
   );
 }

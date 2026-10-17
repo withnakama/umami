@@ -3,7 +3,6 @@ import { useApi } from '@/components/hooks/useApi';
 import { setConfig, useApp } from '@/store/app';
 
 export type Config = {
-  cloudMode: boolean;
   faviconUrl?: string;
   linksUrl?: string;
   pixelsUrl?: string;

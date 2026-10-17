@@ -65,7 +65,7 @@ describe('setUser', () => {
 
 describe('setConfig', () => {
   test('sets the config object', () => {
-    const config = { cloudMode: true };
+    const config = { privateMode: true };
     setConfig(config);
     expect(useApp.getState().config).toBe(config);
   });

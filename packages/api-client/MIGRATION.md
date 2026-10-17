@@ -8,7 +8,7 @@ this package is stable.
 
 | Before                                                  | After                                                                                   |
 | ------------------------------------------------------- | --------------------------------------------------------------------------------------- |
-| `getClient({ apiEndpoint, apiKey, userId, secret })`    | `new UmamiClient({ baseUrl, apiKey, token })`                                          |
+| `getClient({ apiEndpoint, apiKey, userId, secret })`    | `new UmamiClient({ baseUrl, token })`                                          |
 | Methods return `{ ok, data, status, error }`            | Methods return the response body and **throw** `UmamiApiError` on non-2xx              |
 | Positional arguments `getWebsiteStats(websiteId, params)` | Single object `getWebsiteStats({ websiteId, ...params })` (positional still works for common analytics methods, see below) |
 | `getWebsites()`                                         | `listWebsites()` (`getWebsites` kept as a deprecated alias)                             |

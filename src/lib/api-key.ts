@@ -36,7 +36,3 @@ export function isApiKey(token?: string | null): token is string {
 export function isApiKeyBlockedPath(pathname: string) {
   return API_KEY_BLOCKED_PATHS.some(path => pathname === path || pathname.startsWith(`${path}/`));
 }
-
-export function isApiKeyEnabled() {
-  return !process.env.CLOUD_MODE;
-}

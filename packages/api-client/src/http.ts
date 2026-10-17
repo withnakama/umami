@@ -2,9 +2,6 @@ import { UmamiApiError, type UmamiApiErrorBody } from './errors';
 import type { HttpMethod, OperationDefinition } from './generated/operations';
 import type { FetchLike, RequestOptions, UmamiClientOptions } from './types';
 
-export const DEFAULT_BASE_URL = 'https://api.umami.is/v1';
-export const API_KEY_HEADER = 'x-umami-api-key';
-
 type QueryValue = string | number | boolean | Date | null | undefined | QueryValue[];
 
 export function trimSlashes(value: string) {
@@ -13,7 +10,7 @@ export function trimSlashes(value: string) {
 
 /**
  * OpenAPI paths are documented as `/api/...`. The base URL already points at the API root
- * (`https://api.umami.is/v1` or `https://example.com/api`), so the `/api` prefix is dropped.
+ * (`https://example.com/api`), so the `/api` prefix is dropped.
  */
 export function stripApiPrefix(path: string) {
   return path.replace(/^\/api(?=\/|$)/, '');
@@ -53,7 +50,7 @@ export function appendQuery(search: URLSearchParams, key: string, value: QueryVa
 }
 
 export function buildUrl(baseUrl: string, path: string, query: Record<string, unknown>) {
-  const base = trimSlashes(baseUrl || DEFAULT_BASE_URL);
+  const base = trimSlashes(baseUrl);
   const url = new URL(`${base}/${trimSlashes(stripApiPrefix(path))}`);
 
   for (const [key, value] of Object.entries(query)) {
@@ -63,17 +60,11 @@ export function buildUrl(baseUrl: string, path: string, query: Record<string, un
   return url;
 }
 
-export function buildAuthHeaders(options: Pick<UmamiClientOptions, 'token' | 'apiKey'>) {
+export function buildAuthHeaders(options: Pick<UmamiClientOptions, 'token'>) {
   const headers: Record<string, string> = {};
 
-  if (options.apiKey) {
-    headers[API_KEY_HEADER] = options.apiKey;
-  }
-
-  const bearer = options.token ?? options.apiKey;
-
-  if (bearer) {
-    headers.authorization = `Bearer ${bearer}`;
+  if (options.token) {
+    headers.authorization = `Bearer ${options.token}`;
   }
 
   return headers;

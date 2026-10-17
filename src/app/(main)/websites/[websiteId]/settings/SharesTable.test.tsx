@@ -3,7 +3,6 @@ import { render, screen } from '@/test/render';
 import { SharesTable } from './SharesTable';
 
 vi.mock('@/components/hooks', () => ({
-  useConfig: () => ({ cloudMode: false }),
   useMessages: () => ({
     t: (value: string) => value,
     labels: {

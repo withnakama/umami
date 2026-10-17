@@ -6,7 +6,7 @@ import { useLoginQuery } from '@/components/hooks';
 export function AdminLayout({ children }: { children: ReactNode }) {
   const { user } = useLoginQuery();
 
-  if (!user.isAdmin || process.env.cloudMode) {
+  if (!user.isAdmin) {
     return null;
   }
 
