@@ -305,7 +305,7 @@ test.describe('Report runs', () => {
 
     expect(response.status).toBe(200);
     expect(Array.isArray(response.body)).toBe(true);
-    // Aggregates come back as numeric strings on Postgres and numbers on ClickHouse.
+    // Accept the numeric form returned by the database adapter.
     expect(response.body[0]).toMatchObject({
       path: expect.any(String),
       views: expect.anything(),

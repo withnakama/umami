@@ -1,7 +1,4 @@
-import clickhouse from '@/lib/clickhouse';
 import { uuid } from '@/lib/crypto';
-import { CLICKHOUSE, PRISMA, runQuery } from '@/lib/db';
-import kafka from '@/lib/kafka';
 import prisma from '@/lib/prisma';
 
 export interface HeatmapEventRow {
@@ -38,10 +35,7 @@ export async function saveHeatmapEvents(rows: HeatmapEventRow[]) {
     scrollPct: toScrollPct(r.scrollPct),
   }));
 
-  return runQuery({
-    [PRISMA]: () => relationalQuery(normalizedRows),
-    [CLICKHOUSE]: () => clickhouseQuery(normalizedRows),
-  });
+  return relationalQuery(normalizedRows);
 }
 
 function toInt(value: number | null) {
@@ -77,34 +71,4 @@ async function relationalQuery(rows: HeatmapEventRow[]) {
       createdAt: r.createdAt,
     })) as any,
   });
-}
-
-async function clickhouseQuery(rows: HeatmapEventRow[]) {
-  const { insert, getUTCString } = clickhouse;
-  const { sendMessage } = kafka;
-
-  const messages = rows.map(r => ({
-    heatmap_event_id: uuid(),
-    website_id: r.websiteId,
-    session_id: r.sessionId,
-    visit_id: r.visitId,
-    url_path: r.urlPath,
-    event_type: r.eventType,
-    x: r.x,
-    y: r.y,
-    page_x: r.pageX,
-    page_y: r.pageY,
-    page_w: r.pageW,
-    viewport_w: r.viewportW,
-    viewport_h: r.viewportH,
-    page_h: r.pageH,
-    scroll_pct: r.scrollPct,
-    created_at: getUTCString(r.createdAt),
-  }));
-
-  if (kafka.enabled) {
-    return sendMessage('heatmap_event', messages);
-  }
-
-  return insert('heatmap_event', messages);
 }

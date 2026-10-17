@@ -2,7 +2,7 @@
 /**
  * Orchestrates the API integration suite:
  *
- *   1. docker compose up (builds the umami image, starts Postgres [+ ClickHouse])
+ *   1. docker compose up (builds the umami image, starts SQLite)
  *   2. waits for /api/heartbeat
  *   3. runs Playwright against the container (tests/api, playwright.api.config.ts)
  *   4. dumps container logs on failure
@@ -39,7 +39,6 @@ const HELP = `
 Usage: pnpm test:api [options] [-- playwright args]
 
 Options:
-  --clickhouse        Run against Postgres + ClickHouse (analytics stored in ClickHouse)
   --keep              Leave the containers running after the tests finish
   --no-build          Skip the image build (use the existing UMAMI_TEST_IMAGE)
   --up-only           Start the stack, wait for readiness, and exit (see --keep)
@@ -53,7 +52,7 @@ Environment:
   UMAMI_TEST_IMAGE    Image tag to build/run (default umami-test:local)
   COMPOSE_PROJECT_NAME  Compose project name (default umami-api-test)
   PLAYWRIGHT_BASE_URL  Test an already-running server instead of starting the
-                      Compose stack (pass --clickhouse if it stores analytics there)
+                      Compose stack
   API_ALLOW_DESTRUCTIVE=1  Required for non-loopback PLAYWRIGHT_BASE_URL targets: the suite
                       recreates websites, ingests data and toggles global 2FA
   API_SKIP_SEED=1     Reuse the previous seed when re-running against a kept stack
@@ -61,7 +60,6 @@ Environment:
 `;
 
 interface Options {
-  clickhouse: boolean;
   keep: boolean;
   build: boolean;
   upOnly: boolean;
@@ -73,7 +71,6 @@ interface Options {
 
 function parseArgs(argv: string[]): Options {
   const options: Options = {
-    clickhouse: false,
     keep: false,
     build: true,
     upOnly: false,
@@ -96,9 +93,6 @@ function parseArgs(argv: string[]): Options {
     }
 
     switch (arg) {
-      case '--clickhouse':
-        options.clickhouse = true;
-        break;
       case '--keep':
         options.keep = true;
         break;
@@ -157,16 +151,8 @@ function capture(command: string, args: string[]) {
   return `${result.stdout ?? ''}${result.stderr ?? ''}`;
 }
 
-function composeArgs(profiles: string[], args: string[]) {
-  return [
-    'compose',
-    '-f',
-    COMPOSE_FILE,
-    '-p',
-    PROJECT_NAME,
-    ...profiles.flatMap(profile => ['--profile', profile]),
-    ...args,
-  ];
+function composeArgs(args: string[]) {
+  return ['compose', '-f', COMPOSE_FILE, '-p', PROJECT_NAME, ...args];
 }
 
 // Docker reports a taken host port as an opaque "ports are not available" error
@@ -212,13 +198,12 @@ async function waitForHeartbeat(url: string, timeoutMs: number) {
 
 async function main() {
   const options = parseArgs(process.argv.slice(2));
-  const profile = options.clickhouse ? 'clickhouse' : 'postgres';
-  const appService = options.clickhouse ? 'umami-clickhouse' : 'umami';
-  const logServices = options.clickhouse ? [appService, 'db', 'clickhouse'] : [appService, 'db'];
+  const appService = 'umami';
+  const logServices = [appService];
 
   const teardown = () => {
     console.log('\nStopping test stack...');
-    run('docker', composeArgs(['postgres', 'clickhouse'], ['down', '-v', '--remove-orphans']));
+    run('docker', composeArgs(['down', '-v', '--remove-orphans']));
   };
 
   if (EXTERNAL_TARGET && (options.upOnly || options.down)) {
@@ -235,7 +220,7 @@ async function main() {
   }
 
   const dumpLogs = () => {
-    const logs = capture('docker', composeArgs([profile], ['logs', '--no-color', ...logServices]));
+    const logs = capture('docker', composeArgs(['logs', '--no-color', ...logServices]));
 
     mkdirSync(path.dirname(LOG_FILE), { recursive: true });
     writeFileSync(LOG_FILE, logs);
@@ -275,7 +260,7 @@ async function main() {
       // complain when something else is listening on it.
       const ownStackRunning = capture(
         'docker',
-        composeArgs([profile], ['ps', '-q', '--status', 'running', appService]),
+        composeArgs(['ps', '-q', '--status', 'running', appService]),
       ).trim();
 
       if (!ownStackRunning && !(await isPortFree(Number(PORT)))) {
@@ -289,7 +274,7 @@ async function main() {
         return 2;
       }
 
-      console.log(`Starting test stack (profile: ${profile}, port: ${PORT})...`);
+      console.log(`Starting test stack (port: ${PORT})...`);
 
       const upArgs = ['up', '-d', '--wait', '--wait-timeout', '300'];
 
@@ -299,7 +284,7 @@ async function main() {
 
       started = true;
 
-      if (run('docker', composeArgs([profile], upArgs)) !== 0) {
+      if (run('docker', composeArgs(upArgs)) !== 0) {
         console.error('docker compose up failed.');
         dumpLogs();
         return 1;
@@ -313,7 +298,7 @@ async function main() {
     if (options.upOnly) {
       options.keep = true;
       console.log(
-        `\nRun tests with: PLAYWRIGHT_BASE_URL=${BASE_URL} UMAMI_TEST_DB=${profile} pnpm test:api:run` +
+        `\nRun tests with: PLAYWRIGHT_BASE_URL=${BASE_URL} pnpm test:api:run` +
           '\nRe-running against the same stack? Add API_SKIP_SEED=1 (seeding is additive).' +
           '\nStop the stack with: pnpm test:api:down',
       );
@@ -338,7 +323,6 @@ async function main() {
     exitCode = run(process.execPath, playwrightArgs, {
       PLAYWRIGHT_BASE_URL: BASE_URL,
       PLAYWRIGHT_SKIP_WEB_SERVER: '1',
-      UMAMI_TEST_DB: profile,
       API_COVERAGE:
         process.env.API_COVERAGE ?? (options.grep || options.coverageReport ? 'report' : 'enforce'),
     });

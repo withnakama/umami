@@ -29,7 +29,7 @@ body:
   - type: input
     attributes:
       label: How are you deploying your application?
-      description: 'For example: Vercel, Railway, Docker, etc'
+      description: 'For example: Railway or Docker'
   - type: input
     attributes:
       label: Which browser are you using?

@@ -132,9 +132,7 @@ async function poll<T>(label: string, fn: () => Promise<T | undefined>, timeoutM
 }
 
 /**
- * Waits until the analytics queries see the ingested data (ClickHouse
- * materialized views are synchronous, but this guards against any lag) and
- * harvests ids that specs need for path parameters.
+ * Waits until analytics queries see ingested data and gets ids for path parameters.
  */
 async function waitForAnalytics(admin: ApiClient, dataset: Dataset, ingested: IngestResult) {
   const websiteId = SEED_IDS.website;
@@ -144,7 +142,7 @@ async function waitForAnalytics(admin: ApiClient, dataset: Dataset, ingested: In
     `${dataset.expected.pageviews} pageviews on ${websiteId}`,
     async () => {
       const response = await admin.get(`/api/websites/${websiteId}/stats`, { params: range() });
-      // /stats returns flat numbers (possibly as strings under Postgres bigint).
+      // /stats returns flat numbers.
       const pageviews = Number(response.body?.pageviews ?? 0);
 
       return pageviews >= dataset.expected.pageviews ? pageviews : undefined;
@@ -195,8 +193,6 @@ async function waitForAnalytics(admin: ApiClient, dataset: Dataset, ingested: In
 }
 
 export async function seedEnvironment(api: ApiClient): Promise<SeedState> {
-  const db = process.env.UMAMI_TEST_DB === 'clickhouse' ? 'clickhouse' : 'postgres';
-
   const admin = api.bearer(await login(api, ADMIN_USER));
   const user = await ensureUser(admin, SEED_USERS.user);
   const viewer = await ensureUser(admin, SEED_USERS.viewer);
@@ -233,7 +229,6 @@ export async function seedEnvironment(api: ApiClient): Promise<SeedState> {
   const { sessionId, eventId } = await waitForAnalytics(admin, dataset, ingested);
 
   return {
-    db,
     createdAt: new Date().toISOString(),
     admin: { ...ADMIN_USER },
     user,

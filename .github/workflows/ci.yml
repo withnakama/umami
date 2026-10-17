@@ -3,7 +3,7 @@ name: Node.js CI
 on: [push]
 
 env:
-  DATABASE_URL: "postgresql://user:pass@localhost:5432/dummy"
+  DATABASE_URL: "file:/tmp/umami-ci.db"
   SKIP_DB_CHECK: 1
 
 jobs:

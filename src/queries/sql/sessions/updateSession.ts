@@ -1,6 +1,4 @@
-import clickhouse from '@/lib/clickhouse';
 import { FIELD_LENGTH } from '@/lib/constants';
-import { CLICKHOUSE, PRISMA, runQuery } from '@/lib/db';
 import { truncateString } from '@/lib/format';
 import prisma from '@/lib/prisma';
 
@@ -13,10 +11,7 @@ export interface UpdateSessionArgs {
 }
 
 export async function updateSession(data: UpdateSessionArgs) {
-  return runQuery({
-    [PRISMA]: () => relationalQuery(data),
-    [CLICKHOUSE]: () => clickhouseQuery(),
-  });
+  return relationalQuery(data);
 }
 
 async function relationalQuery({ websiteId, sessionId, distinctId }: UpdateSessionArgs) {
@@ -37,13 +32,4 @@ async function relationalQuery({ websiteId, sessionId, distinctId }: UpdateSessi
     },
     FUNCTION_NAME,
   );
-}
-
-async function clickhouseQuery() {
-  if (!clickhouse.enabled) {
-    return;
-  }
-
-  // ClickHouse session reads fall back to session_link because session rows are event-derived.
-  return;
 }

@@ -58,7 +58,6 @@
     "test:e2e": "playwright test",
     "test:e2e:ui": "playwright test --ui",
     "test:api": "tsx scripts/test-api.ts",
-    "test:api:clickhouse": "tsx scripts/test-api.ts --clickhouse",
     "test:api:run": "playwright test -c playwright.api.config.ts",
     "test:api:up": "tsx scripts/test-api.ts --up-only",
     "test:api:down": "tsx scripts/test-api.ts --down",
@@ -72,13 +71,11 @@
     ".next/cache"
   ],
   "dependencies": {
-    "@clickhouse/client": "^1.23.1",
     "@dicebear/collection": "^9.4.3",
     "@dicebear/core": "^9.4.3",
     "@playwright/test": "^1.63.0",
-    "@prisma/adapter-pg": "^7.10.0",
+    "@prisma/adapter-better-sqlite3": "7.10.0",
     "@prisma/client": "^7.10.0",
-    "@prisma/extension-read-replicas": "^0.5.0",
     "@svgr/cli": "^8.1.0",
     "@tanstack/react-query": "^5.102.8",
     "@umami/api-client": "workspace:*",
@@ -103,7 +100,6 @@
     "isbot": "^5.2.2",
     "jsonwebtoken": "^9.0.3",
     "jszip": "^3.10.2",
-    "kafkajs": "^2.1.0",
     "lucide-react": "^1.44.0",
     "maxmind": "^5.0.7",
     "motion": "^12.43.0",
@@ -136,7 +132,6 @@
   },
   "devDependencies": {
     "@biomejs/biome": "^2.5.13",
-    "@netlify/plugin-nextjs": "^5.15.13",
     "@rollup/plugin-commonjs": "^29.0.3",
     "@rollup/plugin-node-resolve": "^16.0.3",
     "@rollup/plugin-replace": "^6.0.3",

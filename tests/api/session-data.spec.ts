@@ -61,7 +61,7 @@ test.describe('Session data', () => {
         propertyKeys: expect.any(Array),
         propertyValues: expect.any(Array),
       });
-      // Key order is backend-specific (Postgres sorts, ClickHouse keeps insertion order).
+      // Sort the keys because storage order is not part of the API contract.
       expect([...row.propertyKeys].sort()).toEqual([
         'active',
         'plan',

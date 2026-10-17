@@ -5,10 +5,6 @@
 # schema (migrations + the default admin user are applied by the umami image on
 # boot via scripts/start-docker.sh).
 #
-# Profiles:
-#   postgres    umami + Postgres              -> pnpm test:api
-#   clickhouse  umami + Postgres + ClickHouse -> pnpm test:api:clickhouse
-#
 # Environment overrides:
 #   UMAMI_TEST_PORT   host port for the app (default 3100, avoids the dev server on 3000)
 #   UMAMI_TEST_IMAGE  image tag to run/build (default umami-test:local)
@@ -31,7 +27,7 @@ x-umami-service: &umami-service
     start_period: 20s
 
 x-umami-env: &umami-env
-  DATABASE_URL: postgresql://umami:umami@db:5432/umami
+  DATABASE_URL: file:/app/data/umami.db
   APP_SECRET: umami-api-test-secret
   TWO_FACTOR_ENCRYPTION_KEY: 0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef
   # Playwright/curl user agents are classified as bots; without this /api/send silently drops events.
@@ -41,68 +37,8 @@ x-umami-env: &umami-env
   MCP_ENABLED: "1"
 
 services:
-  db:
-    image: postgres:15-alpine
-    environment:
-      POSTGRES_DB: umami
-      POSTGRES_USER: umami
-      POSTGRES_PASSWORD: umami
-    tmpfs:
-      - /var/lib/postgresql/data
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U umami -d umami"]
-      interval: 2s
-      timeout: 5s
-      retries: 30
-
   umami:
     <<: *umami-service
-    profiles: [postgres]
     environment: *umami-env
-    depends_on:
-      db:
-        condition: service_healthy
-
-  clickhouse:
-    # Pinned to an LTS release. 26.7+ rejects db/clickhouse/schema.sql because
-    # website_event_stats_hourly has dimension columns outside the sorting key
-    # (see allow_dimensions_outside_sorting_key).
-    image: clickhouse/clickhouse-server:25.8
-    profiles: [clickhouse]
-    environment:
-      CLICKHOUSE_DB: umami
-      CLICKHOUSE_USER: umami
-      CLICKHOUSE_PASSWORD: umami
-    ulimits:
-      nofile:
-        soft: 262144
-        hard: 262144
     tmpfs:
-      - /var/lib/clickhouse
-    volumes:
-      # The image runs /docker-entrypoint-initdb.d/*.sql on first start (empty data dir).
-      - ./tests/api/docker/clickhouse-init/00-create-db.sql:/docker-entrypoint-initdb.d/00-create-db.sql:ro
-      - ./db/clickhouse/schema.sql:/docker-entrypoint-initdb.d/01-schema.sql:ro
-    healthcheck:
-      # Healthy only once schema.sql has been applied (session_link is the last table it creates).
-      test:
-        [
-          "CMD-SHELL",
-          "clickhouse-client --user umami --password umami --query \"SELECT throwIf(count() = 0) FROM system.tables WHERE database = 'umami' AND name = 'session_link'\"",
-        ]
-      interval: 2s
-      timeout: 5s
-      retries: 90
-      start_period: 10s
-
-  umami-clickhouse:
-    <<: *umami-service
-    profiles: [clickhouse]
-    environment:
-      <<: *umami-env
-      CLICKHOUSE_URL: http://umami:umami@clickhouse:8123/umami
-    depends_on:
-      db:
-        condition: service_healthy
-      clickhouse:
-        condition: service_healthy
+      - /app/data:mode=1777

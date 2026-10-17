@@ -27,8 +27,8 @@ A detailed getting started guide can be found at [umami.is/docs](https://umami.i
 
 ### Requirements
 
-- A server with Node.js version 18.18+.
-- A PostgreSQL database version v12.14+.
+- A server with Node.js version 22+.
+- A writable directory for the SQLite database.
 
 ### Get the source code and install packages
 
@@ -43,7 +43,8 @@ pnpm install
 Create an `.env` file with the following:
 
 ```bash
-DATABASE_URL=connection-url
+DATABASE_URL=file:/absolute/path/to/umami.db
+APP_SECRET=replace-me-with-a-random-string
 ```
 
 Optional: set `API_URL` to change the base URL used by internal UI API calls.
@@ -60,7 +61,7 @@ authenticate with an API key generated under Settings → API keys.
 The connection URL format:
 
 ```bash
-postgresql://username:mypassword@localhost:5432/mydb
+file:/absolute/path/to/umami.db
 ```
 
 ### Build the Application
@@ -83,15 +84,9 @@ By default, this will launch the application on `http://localhost:3000`. You wil
 
 ## 🐳 Installing with Docker
 
-Umami provides Docker images as well as a Docker compose file for easy deployment.
+Build the SQLite image with the Docker compose file in this repository.
 
-Docker image:
-
-```bash
-docker pull docker.umami.is/umami-software/umami:latest
-```
-
-Docker compose (Runs Umami with a PostgreSQL database):
+Docker compose (Runs Umami with a persistent SQLite database):
 
 ```bash
 docker compose up -d
@@ -109,11 +104,11 @@ pnpm install
 pnpm build
 ```
 
-To update the Docker image, simply pull the new images and rebuild:
+To update the Docker image, pull the source changes and rebuild:
 
 ```bash
-docker compose pull
-docker compose up --force-recreate -d
+git pull
+docker compose up --build --force-recreate -d
 ```
 
 ---

@@ -4,7 +4,7 @@ import { getWebsiteSegment } from '@/queries/prisma';
 import { getQueryFilters } from './request';
 
 vi.hoisted(() => {
-  process.env.DATABASE_URL ??= 'postgresql://user:pass@localhost:5432/umami?schema=public';
+  process.env.DATABASE_URL ??= 'file:./umami-test.db';
   delete process.env.DATABASE_REPLICA_URL;
 });
 
@@ -26,13 +26,11 @@ beforeEach(() => {
   fetchWebsiteMock.mockResolvedValue({ id: 'website-1' } as any);
 });
 
-test('combines a saved segment\'s session property filters with active filters', async () => {
+test("combines a saved segment's session property filters with active filters", async () => {
   getWebsiteSegmentMock.mockResolvedValue({
     parameters: {
       filters: [],
-      sessionPropertyFilters: [
-        { propertyName: 'plan', dataType: 1, operator: 'eq', value: 'pro' },
-      ],
+      sessionPropertyFilters: [{ propertyName: 'plan', dataType: 1, operator: 'eq', value: 'pro' }],
     },
   } as any);
 

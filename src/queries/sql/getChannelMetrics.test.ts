@@ -10,32 +10,15 @@ import {
 } from '@/lib/constants';
 import { getChannelMetrics } from './getChannelMetrics';
 
-const { state, prismaRawQuery, prismaParseFilters, clickhouseRawQuery, clickhouseParseFilters } =
-  vi.hoisted(() => ({
-    state: { mode: 'prisma' as 'prisma' | 'clickhouse' },
-    prismaRawQuery: vi.fn(),
-    prismaParseFilters: vi.fn(),
-    clickhouseRawQuery: vi.fn(),
-    clickhouseParseFilters: vi.fn(),
-  }));
-
-vi.mock('@/lib/db', () => ({
-  CLICKHOUSE: 'clickhouse',
-  PRISMA: 'prisma',
-  runQuery: vi.fn((queries: Record<string, () => unknown>) => queries[state.mode]()),
+const { prismaRawQuery, prismaParseFilters } = vi.hoisted(() => ({
+  prismaRawQuery: vi.fn(),
+  prismaParseFilters: vi.fn(),
 }));
 
 vi.mock('@/lib/prisma', () => ({
   default: {
     rawQuery: prismaRawQuery,
     parseFilters: prismaParseFilters,
-  },
-}));
-
-vi.mock('@/lib/clickhouse', () => ({
-  default: {
-    rawQuery: clickhouseRawQuery,
-    parseFilters: clickhouseParseFilters,
   },
 }));
 
@@ -49,19 +32,14 @@ const parseFiltersResult = {
 };
 
 beforeEach(() => {
-  state.mode = 'prisma';
   prismaRawQuery.mockReset();
   prismaParseFilters.mockReset();
-  clickhouseRawQuery.mockReset();
-  clickhouseParseFilters.mockReset();
 
   prismaParseFilters.mockReturnValue(parseFiltersResult);
-  clickhouseParseFilters.mockReturnValue(parseFiltersResult);
   prismaRawQuery.mockResolvedValue([]);
-  clickhouseRawQuery.mockResolvedValue([]);
 });
 
-describe('getChannelMetrics postgres branch', () => {
+describe('getChannelMetrics SQLite branch', () => {
   test('builds the channel classification CTE with parseFilters fragments injected', async () => {
     await getChannelMetrics('website-1', {});
 
@@ -97,7 +75,7 @@ describe('getChannelMetrics postgres branch', () => {
     expect(query).toContain("concat(prefix, 'Video')");
   });
 
-  test('toPostgresLikeClause renders one ilike per array entry joined by OR', async () => {
+  test('toSqliteLikeClause renders one ilike per array entry joined by OR', async () => {
     await getChannelMetrics('website-1', {});
     const [query] = prismaRawQuery.mock.calls[0];
 
@@ -137,7 +115,7 @@ describe('getChannelMetrics postgres branch', () => {
     expect(result).toEqual([{ x: 'direct', y: 42 }]);
   });
 
-  // toPostgresLikeClause escapes LIKE wildcards (% and _) and backslashes so the
+  // toSqliteLikeClause escapes LIKE wildcards (% and _) and backslashes so the
   // value matches literally, then escapes single quotes for the SQL string
   // literal. The hardcoded constants contain none of these, so their rendered
   // form is unchanged; this asserts each constant appears intact in the clause.
@@ -150,62 +128,6 @@ describe('getChannelMetrics postgres branch', () => {
 
     for (const val of [...PAID_AD_PARAMS, ...LLM_DOMAINS, ...SEARCH_DOMAINS]) {
       expect(query).toContain(`'%${escapeLike(val)}%'`);
-    }
-  });
-});
-
-describe('getChannelMetrics clickhouse branch', () => {
-  beforeEach(() => {
-    state.mode = 'clickhouse';
-  });
-
-  test('builds the multiSearchAny channel query with parseFilters fragments', async () => {
-    await getChannelMetrics('website-1', {});
-
-    expect(clickhouseRawQuery).toHaveBeenCalledTimes(1);
-    expect(prismaRawQuery).not.toHaveBeenCalled();
-    const [query, params, tag] = clickhouseRawQuery.mock.calls[0];
-
-    expect(query).toContain('WITH channels as');
-    expect(query).toContain('where website_id = {websiteId:UUID}');
-    expect(query).toContain('and event_type NOT IN (2, 5)');
-    expect(query).toContain(
-      "multiSearchAny(lower(utm_medium), ['cp', 'ppc', 'retargeting', 'paid'])",
-    );
-    expect(query).toContain(parseFiltersResult.filterQuery);
-    expect(query).toContain(parseFiltersResult.cohortQuery);
-    expect(query).toContain(parseFiltersResult.excludeBounceQuery);
-    expect(query).toContain(parseFiltersResult.dateQuery);
-    expect(params).toBe(parseFiltersResult.queryParams);
-    expect(tag).toBe('getChannelMetrics');
-    // clickhouse branch does not join a session table
-    expect(query).not.toContain(parseFiltersResult.joinSessionQuery);
-  });
-
-  test('toClickHouseStringArray quotes and comma-joins each entry', async () => {
-    await getChannelMetrics('website-1', {});
-    const [query] = clickhouseRawQuery.mock.calls[0];
-
-    expect(query).toContain(
-      `multiSearchAny(lower(url_query), [${PAID_AD_PARAMS.map(v => `'${v}'`).join(', ')}])`,
-    );
-    expect(query).toContain(
-      `multiSearchAny(lower(referrer_domain), [${LLM_DOMAINS.map(v => `'${v}'`).join(', ')}])`,
-    );
-    expect(query).toContain(
-      `multiSearchAny(lower(referrer_domain), [${SEARCH_DOMAINS.map(v => `'${v}'`).join(', ')}])`,
-    );
-  });
-
-  // toClickHouseStringArray escapes backslashes and single quotes for ClickHouse
-  // string literals. The constants contain neither, so they render unchanged.
-  test('clickhouse array escaping handles backslashes and single quotes', async () => {
-    await getChannelMetrics('website-1', {});
-    const [query] = clickhouseRawQuery.mock.calls[0];
-
-    for (const val of [...VIDEO_DOMAINS, ...SHOPPING_DOMAINS]) {
-      const escaped = val.replace(/\\/g, '\\\\').replace(/'/g, "\\'");
-      expect(query).toContain(`'${escaped}'`);
     }
   });
 });

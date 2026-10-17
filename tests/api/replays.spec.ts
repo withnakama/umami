@@ -73,9 +73,8 @@ test.describe('Replays', () => {
       browser: 'chrome',
       os: expect.any(String),
       device: expect.any(String),
-      // Unresolved geo is null on Postgres but '' on ClickHouse (non-nullable String columns).
-      country: seed.db === 'clickhouse' ? '' : null,
-      city: seed.db === 'clickhouse' ? '' : null,
+      country: null,
+      city: null,
     });
     expect(replay.duration).toBe(
       new Date(replay.endedAt).getTime() - new Date(replay.startedAt).getTime(),
@@ -122,13 +121,8 @@ test.describe('Replays', () => {
       timestamp: expect.any(Number),
     });
     const timestamps = response.body.events.map((event: any) => event.timestamp);
-    // ClickHouse stores replay bounds at second precision; Postgres keeps milliseconds.
-    const bound = (value: number) =>
-      seed.db === 'clickhouse' ? Math.floor(value / 1000) * 1000 : value;
-    expect(bound(timestamps[0])).toBe(new Date(response.body.startedAt).getTime());
-    expect(bound(timestamps[timestamps.length - 1])).toBe(
-      new Date(response.body.endedAt).getTime(),
-    );
+    expect(timestamps[0]).toBe(new Date(response.body.startedAt).getTime());
+    expect(timestamps[timestamps.length - 1]).toBe(new Date(response.body.endedAt).getTime());
 
     // Unknown replays are an empty recording, not a 404.
     expect(unknown.status).toBe(200);

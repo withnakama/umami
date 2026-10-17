@@ -1,7 +1,7 @@
 import { z } from 'zod';
 import type { Prisma, Website } from '@/generated/prisma/client';
 import { ROLES } from '@/lib/constants';
-import prisma, { getSchema } from '@/lib/prisma';
+import prisma from '@/lib/prisma';
 import redis from '@/lib/redis';
 import { sanitizeSortFilters } from '@/lib/sort';
 import type { PageResult, QueryFilters } from '@/lib/types';
@@ -40,18 +40,12 @@ async function deleteWebsiteDependentData(tx: any, websiteId: string) {
 
   // Follow the real EventData -> WebsiteEvent dependency to clean up any legacy rows
   // whose duplicated websiteId drifted from the parent event row.
-  const schema = getSchema();
-
-  if (schema) {
-    await tx.$executeRawUnsafe(`SET search_path TO "${schema}";`);
-  }
-
   await tx.$executeRawUnsafe(
     `
       delete from event_data
-      using website_event
-      where event_data.website_event_id = website_event.event_id
-        and website_event.website_id = $1
+      where website_event_id in (
+        select event_id from website_event where website_id = ?
+      )
     `,
     websiteId,
   );

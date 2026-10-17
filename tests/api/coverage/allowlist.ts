@@ -3,8 +3,6 @@ export interface AllowlistEntry {
   key: string;
   /** Why this operation cannot be exercised by the harness. */
   reason: string;
-  /** Only applies when running against this backend (UMAMI_TEST_DB); omit for both. */
-  db?: 'postgres' | 'clickhouse';
 }
 
 /**
@@ -21,10 +19,5 @@ export const allowlist: AllowlistEntry[] = [
   {
     key: 'GET /api/auth/subscription',
     reason: 'Cloud billing/subscription lookup; only meaningful under CLOUD_MODE.',
-  },
-  {
-    key: 'DELETE /api/websites/{websiteId}/sessions/{sessionId}',
-    reason: 'Session deletion needs relational storage; sessions.spec.ts skips it on ClickHouse.',
-    db: 'clickhouse',
   },
 ];

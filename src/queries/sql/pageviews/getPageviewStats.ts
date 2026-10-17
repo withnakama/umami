@@ -1,16 +1,10 @@
-import clickhouse from '@/lib/clickhouse';
-import { EVENT_COLUMNS } from '@/lib/constants';
-import { CLICKHOUSE, PRISMA, runQuery } from '@/lib/db';
 import prisma from '@/lib/prisma';
 import type { QueryFilters } from '@/lib/types';
 
 const FUNCTION_NAME = 'getPageviewStats';
 
 export async function getPageviewStats(...args: [websiteId: string, filters: QueryFilters]) {
-  return runQuery({
-    [PRISMA]: () => relationalQuery(...args),
-    [CLICKHOUSE]: () => clickhouseQuery(...args),
-  });
+  return relationalQuery(...args);
 }
 
 async function relationalQuery(websiteId: string, filters: QueryFilters) {
@@ -41,62 +35,4 @@ async function relationalQuery(websiteId: string, filters: QueryFilters) {
     queryParams,
     FUNCTION_NAME,
   );
-}
-
-async function clickhouseQuery(
-  websiteId: string,
-  filters: QueryFilters,
-): Promise<{ x: string; y: number }[]> {
-  const { timezone = 'UTC', unit = 'day' } = filters;
-  const { parseFilters, rawQuery, getDateSQL } = clickhouse;
-  const { filterQuery, cohortQuery, excludeBounceQuery, queryParams } = parseFilters({
-    ...filters,
-    websiteId,
-  });
-
-  let sql = '';
-
-  if (EVENT_COLUMNS.some(item => Object.keys(filters).includes(item)) || unit === 'minute') {
-    sql = `
-    select
-      g.t as x,
-      g.y as y
-    from (
-      select
-        ${getDateSQL('website_event.created_at', unit, timezone)} as t,
-        count(*) as y
-      from website_event
-      ${cohortQuery}
-      ${excludeBounceQuery}
-      where website_id = {websiteId:UUID}
-        and created_at between {startDate:DateTime64} and {endDate:DateTime64}
-        and event_type NOT IN (2, 5)
-        ${filterQuery}
-      group by t
-    ) as g
-    order by t
-    `;
-  } else {
-    sql = `
-    select
-      g.t as x,
-      g.y as y
-    from (
-      select
-        ${getDateSQL('website_event.created_at', unit, timezone)} as t,
-        sum(views) as y
-      from website_event_stats_hourly as website_event
-      ${cohortQuery}
-      ${excludeBounceQuery}
-      where website_id = {websiteId:UUID}
-        and created_at between {startDate:DateTime64} and {endDate:DateTime64}
-        and event_type NOT IN (2, 5)
-        ${filterQuery}
-      group by t
-    ) as g
-    order by t
-    `;
-  }
-
-  return rawQuery(sql, queryParams, FUNCTION_NAME);
 }

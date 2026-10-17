@@ -1,10 +1,4 @@
-import clickhouse from '@/lib/clickhouse';
-import {
-  FILTER_COLUMNS,
-  GROUPED_DOMAINS,
-  SESSION_COLUMNS,
-} from '@/lib/constants';
-import { CLICKHOUSE, PRISMA, runQuery } from '@/lib/db';
+import { FILTER_COLUMNS, GROUPED_DOMAINS, SESSION_COLUMNS } from '@/lib/constants';
 import prisma from '@/lib/prisma';
 import type { QueryFilters } from '@/lib/types';
 
@@ -28,10 +22,7 @@ export interface PageviewExpandedMetricsData {
 export async function getPageviewExpandedMetrics(
   ...args: [websiteId: string, parameters: PageviewExpandedMetricsParameters, filters: QueryFilters]
 ) {
-  return runQuery({
-    [PRISMA]: () => relationalQuery(...args),
-    [CLICKHOUSE]: () => clickhouseQuery(...args),
-  });
+  return relationalQuery(...args);
 }
 
 async function relationalQuery(
@@ -61,7 +52,7 @@ async function relationalQuery(
     excludeDomain = `and website_event.referrer_domain != regexp_replace(website_event.hostname, '^www.', '')
       and website_event.referrer_domain != ''`;
     if (type === 'domain') {
-      column = toPostgresGroupedReferrer(GROUPED_DOMAINS);
+      column = toSqliteGroupedReferrer(GROUPED_DOMAINS);
     }
   }
 
@@ -135,113 +126,7 @@ async function relationalQuery(
   );
 }
 
-async function clickhouseQuery(
-  websiteId: string,
-  parameters: PageviewExpandedMetricsParameters,
-  filters: QueryFilters,
-): Promise<{ x: string; y: number }[]> {
-  const { type, limit = 500, offset = 0 } = parameters;
-  let column = getPageviewColumn(type);
-  const { rawQuery, parseFilters } = clickhouse;
-  const { filterQuery, cohortQuery, excludeBounceQuery, queryParams } = parseFilters({
-    ...filters,
-    websiteId,
-  });
-  const fullPathSearchQuery =
-    type === 'fullPath' && filters.search
-      ? `and positionCaseInsensitive(if(url_query != '', concat(url_path, '?', url_query), url_path), {fullPathSearch:String}) > 0`
-      : '';
-
-  let excludeDomain = '';
-  let entryExitQuery = '';
-  let selectColumn = column;
-
-  if (column === 'referrer_domain') {
-    excludeDomain = `and referrer_domain != hostname and referrer_domain != ''`;
-    if (type === 'domain') {
-      column = toClickHouseGroupedReferrer(GROUPED_DOMAINS);
-      selectColumn = column;
-    }
-  }
-
-  if (type === 'entry' || type === 'exit') {
-    const aggregrate = type === 'entry' ? 'argMin' : 'argMax';
-
-    entryExitQuery = `
-      JOIN (select visit_id,
-          ${aggregrate}(url_path, created_at) url_path,
-          ${aggregrate}(url_query, created_at) url_query
-      from website_event
-      where website_id = {websiteId:UUID}
-        and created_at between {startDate:DateTime64} and {endDate:DateTime64}
-        and event_type NOT IN (2, 5)
-      group by visit_id) x
-      ON x.visit_id = website_event.visit_id`;
-
-    selectColumn = `x.url_path`;
-  } else if (type === 'fullPath') {
-    selectColumn = `if(url_query != '', concat(url_path, '?', url_query), url_path)`;
-  }
-
-  return rawQuery(
-    `
-    select
-      name,
-      sum(t.c) as "pageviews",
-      uniq(t.session_id) as "visitors",
-      uniq(t.visit_id) as "visits",
-      0 as "bounces",
-      0 as "totaltime"
-    from (
-      select
-        ${selectColumn} name,
-        session_id,
-        visit_id,
-        count(*) c
-      from website_event
-      ${cohortQuery}
-      ${excludeBounceQuery}
-      ${entryExitQuery}
-      where website_id = {websiteId:UUID}
-        and created_at between {startDate:DateTime64} and {endDate:DateTime64}
-        and event_type NOT IN (2, 5)
-        and name != ''
-        ${excludeDomain}
-        ${fullPathSearchQuery}
-        ${filterQuery}
-      group by name, session_id, visit_id
-    ) as t
-    group by name
-    order by visitors desc, visits desc
-    limit ${limit}
-    offset ${offset}
-    `,
-    {
-      ...queryParams,
-      ...parameters,
-      ...(type === 'fullPath' && filters.search ? { fullPathSearch: filters.search } : {}),
-    },
-    FUNCTION_NAME,
-  );
-}
-
-export function toClickHouseGroupedReferrer(
-  domains: any[],
-  column: string = 'referrer_domain',
-): string {
-  return [
-    'CASE',
-    ...domains.map(group => {
-      const matches = Array.isArray(group.match) ? group.match : [group.match];
-      const formattedArray = matches.map(m => `'${m}'`).join(', ');
-      return `  WHEN multiSearchAny(${column}, [${formattedArray}]) != 0 THEN '${group.domain}'`;
-    }),
-    "  ELSE 'Other'",
-    'END',
-  ].join('\n');
-}
-
-export function toPostgresGroupedReferrer(
+export function toSqliteGroupedReferrer(
   domains: any[],
   column: string = 'referrer_domain',
 ): string {
@@ -250,14 +135,14 @@ export function toPostgresGroupedReferrer(
     ...domains.map(group => {
       const matches = Array.isArray(group.match) ? group.match : [group.match];
 
-      return `WHEN ${toPostgresLikeClause(column, matches)} THEN '${group.domain}'`;
+      return `WHEN ${toSqliteLikeClause(column, matches)} THEN '${group.domain}'`;
     }),
     "  ELSE 'Other'",
     'END',
   ].join('\n');
 }
 
-function toPostgresLikeClause(column: string, arr: string[]) {
+function toSqliteLikeClause(column: string, arr: string[]) {
   return arr.map(val => `${column} ilike '%${val.replace(/'/g, "''")}%'`).join(' OR\n  ');
 }
 

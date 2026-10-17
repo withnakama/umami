@@ -1,5 +1,3 @@
-import clickhouse from '@/lib/clickhouse';
-import { CLICKHOUSE, PRISMA, runQuery } from '@/lib/db';
 import prisma from '@/lib/prisma';
 import type { QueryFilters } from '@/lib/types';
 
@@ -15,10 +13,7 @@ export interface WebsiteEventStatsData {
 export async function getWebsiteEventStats(
   ...args: [websiteId: string, filters: QueryFilters]
 ): Promise<WebsiteEventStatsData[]> {
-  return runQuery({
-    [PRISMA]: () => relationalQuery(...args),
-    [CLICKHOUSE]: () => clickhouseQuery(...args),
-  });
+  return relationalQuery(...args);
 }
 
 async function relationalQuery(
@@ -49,43 +44,4 @@ async function relationalQuery(
     queryParams,
     FUNCTION_NAME,
   ).then(result => result?.[0]);
-}
-
-async function clickhouseQuery(
-  websiteId: string,
-  filters: QueryFilters,
-): Promise<WebsiteEventStatsData[]> {
-  const { rawQuery, parseFilters } = clickhouse;
-  const { filterQuery, cohortQuery, queryParams } = parseFilters({
-    ...filters,
-    websiteId,
-  });
-
-  const sql = filterQuery || cohortQuery
-    ? `
-      select
-        count(*) as "events",
-        uniq(session_id) as "visitors",
-        uniq(visit_id) as "visits",
-        uniq(event_name) as "uniqueEvents"
-      from website_event
-      ${cohortQuery}
-      where website_id = {websiteId:UUID}
-        and created_at between {startDate:DateTime64} and {endDate:DateTime64}
-        and event_type = 2
-        ${filterQuery};
-      `
-    : `
-      select
-        sum(length(event_name)) as "events",
-        uniq(session_id) as "visitors",
-        uniq(visit_id) as "visits",
-        uniqArray(event_name) as "uniqueEvents"
-      from website_event_stats_hourly website_event
-      where website_id = {websiteId:UUID}
-        and created_at between {startDate:DateTime64} and {endDate:DateTime64}
-        and event_type = 2;
-      `;
-
-  return rawQuery(sql, queryParams, FUNCTION_NAME).then(result => result?.[0]);
 }

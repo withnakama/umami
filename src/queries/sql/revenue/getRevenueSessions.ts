@@ -1,6 +1,4 @@
-import clickhouse from '@/lib/clickhouse';
 import { EVENT_TYPE } from '@/lib/constants';
-import { CLICKHOUSE, PRISMA, runQuery } from '@/lib/db';
 import prisma from '@/lib/prisma';
 import type { PageResult, QueryFilters, WebsiteSession } from '@/lib/types';
 
@@ -9,10 +7,7 @@ const FUNCTION_NAME = 'getRevenueSessions';
 export async function getRevenueSessions(
   ...args: [websiteId: string, currency: string, filters: QueryFilters]
 ): Promise<PageResult<WebsiteSession[]>> {
-  return runQuery({
-    [PRISMA]: () => relationalQuery(...args),
-    [CLICKHOUSE]: () => clickhouseQuery(...args),
-  });
+  return relationalQuery(...args);
 }
 
 async function relationalQuery(websiteId: string, currency: string, filters: QueryFilters) {
@@ -82,65 +77,6 @@ async function relationalQuery(websiteId: string, currency: string, filters: Que
       session.region,
       session.city
     order by max(website_event.created_at) desc
-    `,
-    queryParams,
-    filters,
-    FUNCTION_NAME,
-  );
-}
-
-async function clickhouseQuery(websiteId: string, currency: string, filters: QueryFilters) {
-  const { pagedRawQuery, parseFilters, getDateStringSQL } = clickhouse;
-  const { search } = filters;
-  const { filterQuery, dateQuery, cohortQuery, queryParams } = parseFilters({
-    ...filters,
-    websiteId,
-    currency,
-  });
-
-  const searchQuery = search
-    ? `and ((positionCaseInsensitive(browser, {search:String}) > 0)
-           or (positionCaseInsensitive(city, {search:String}) > 0)
-           or (positionCaseInsensitive(os, {search:String}) > 0)
-           or (positionCaseInsensitive(device, {search:String}) > 0))`
-    : '';
-
-  return pagedRawQuery(
-    `
-    select
-      session_id as id,
-      website_id as websiteId,
-      hostname,
-      browser,
-      os,
-      device,
-      screen,
-      language,
-      country,
-      region,
-      city,
-      ${getDateStringSQL('min(created_at)')} as firstAt,
-      ${getDateStringSQL('max(created_at)')} as lastAt,
-      uniq(visit_id) as visits,
-      sumIf(1, event_type = 1) as views,
-      sumIf(1, event_type = 2) as events,
-      max(created_at) as createdAt
-    from website_event
-    ${cohortQuery}
-    where website_id = {websiteId:UUID}
-      and event_type != ${EVENT_TYPE.performance}
-    ${dateQuery}
-    ${filterQuery}
-    ${searchQuery}
-      and session_id in (
-        select distinct session_id
-        from website_revenue
-        where website_id = {websiteId:UUID}
-        ${dateQuery}
-          and upper(currency) = {currency:String}
-      )
-    group by session_id, website_id, hostname, browser, os, device, screen, language, country, region, city
-    order by max(created_at) desc
     `,
     queryParams,
     filters,

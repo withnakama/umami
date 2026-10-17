@@ -11,7 +11,6 @@ vi.mock('@/lib/prisma', () => ({
   default: {
     transaction: transactionMock,
   },
-  getSchema: () => new URL(process.env.DATABASE_URL || '').searchParams.get('schema'),
 }));
 
 vi.mock('@/lib/redis', () => ({
@@ -112,7 +111,7 @@ describe('website delete dependencies', () => {
     redisDelMock.mockReset();
     redisSetMock.mockReset();
     delete process.env.CLOUD_MODE;
-    process.env.DATABASE_URL = 'postgresql://user:pass@localhost:5432/umami?schema=public';
+    process.env.DATABASE_URL = 'file:./umami.db';
   });
 
   test('deleteWebsite runs fast event-data cleanup, a relational safety pass, and heatmap cleanup before deleting website events', async () => {
@@ -129,15 +128,14 @@ describe('website delete dependencies', () => {
     expect(tx.heatmapEvent.deleteMany).toHaveBeenCalledWith({
       where: { websiteId: 'website-1' },
     });
-    expect(tx.$executeRawUnsafe).toHaveBeenNthCalledWith(1, 'SET search_path TO "public";');
     expect(tx.$executeRawUnsafe).toHaveBeenNthCalledWith(
-      2,
+      1,
       expect.stringContaining('delete from event_data'),
       'website-1',
     );
     expect(tx.$executeRawUnsafe).toHaveBeenNthCalledWith(
-      2,
-      expect.stringContaining('website_event.website_id = $1'),
+      1,
+      expect.stringContaining('website_id = ?'),
       'website-1',
     );
     expect(calls).toEqual([
@@ -146,7 +144,6 @@ describe('website delete dependencies', () => {
       'heatmapEvent',
       'revenue',
       'eventData',
-      'rawSql',
       'rawSql',
       'sessionData',
       'sessionLink',
@@ -174,10 +171,9 @@ describe('website delete dependencies', () => {
     expect(tx.heatmapEvent.deleteMany).toHaveBeenCalledWith({
       where: { websiteId: 'website-1' },
     });
-    expect(tx.$executeRawUnsafe).toHaveBeenNthCalledWith(1, 'SET search_path TO "public";');
     expect(tx.$executeRawUnsafe).toHaveBeenNthCalledWith(
-      2,
-      expect.stringContaining('website_event.website_id = $1'),
+      1,
+      expect.stringContaining('website_id = ?'),
       'website-1',
     );
     expect(calls).toEqual([
@@ -186,7 +182,6 @@ describe('website delete dependencies', () => {
       'heatmapEvent',
       'revenue',
       'eventData',
-      'rawSql',
       'rawSql',
       'sessionData',
       'sessionLink',

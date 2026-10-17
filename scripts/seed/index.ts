@@ -1,6 +1,6 @@
 /* eslint-disable no-console */
 import 'dotenv/config';
-import { PrismaPg } from '@prisma/adapter-pg';
+import { PrismaBetterSqlite3 } from '@prisma/adapter-better-sqlite3';
 import { type Prisma, PrismaClient } from '../../src/generated/prisma/client.js';
 import { getSessionCountForDay } from './distributions/temporal.js';
 import {
@@ -59,7 +59,7 @@ async function batchInsertSessions(
 ): Promise<void> {
   for (let i = 0; i < data.length; i += BATCH_SIZE) {
     const batch = data.slice(i, i + BATCH_SIZE);
-    await prisma.session.createMany({ data: batch, skipDuplicates: true });
+    await prisma.session.createMany({ data: batch });
     if (verbose) {
       console.log(
         `  Inserted ${Math.min(i + BATCH_SIZE, data.length)}/${data.length} session records`,
@@ -75,7 +75,7 @@ async function batchInsertEvents(
 ): Promise<void> {
   for (let i = 0; i < data.length; i += BATCH_SIZE) {
     const batch = data.slice(i, i + BATCH_SIZE);
-    await prisma.websiteEvent.createMany({ data: batch, skipDuplicates: true });
+    await prisma.websiteEvent.createMany({ data: batch });
     if (verbose) {
       console.log(
         `  Inserted ${Math.min(i + BATCH_SIZE, data.length)}/${data.length} event records`,
@@ -91,7 +91,7 @@ async function batchInsertEventData(
 ): Promise<void> {
   for (let i = 0; i < data.length; i += BATCH_SIZE) {
     const batch = data.slice(i, i + BATCH_SIZE);
-    await prisma.eventData.createMany({ data: batch, skipDuplicates: true });
+    await prisma.eventData.createMany({ data: batch });
     if (verbose) {
       console.log(
         `  Inserted ${Math.min(i + BATCH_SIZE, data.length)}/${data.length} eventData records`,
@@ -107,7 +107,7 @@ async function batchInsertRevenue(
 ): Promise<void> {
   for (let i = 0; i < data.length; i += BATCH_SIZE) {
     const batch = data.slice(i, i + BATCH_SIZE);
-    await prisma.revenue.createMany({ data: batch, skipDuplicates: true });
+    await prisma.revenue.createMany({ data: batch });
     if (verbose) {
       console.log(
         `  Inserted ${Math.min(i + BATCH_SIZE, data.length)}/${data.length} revenue records`,
@@ -275,23 +275,19 @@ function createPrismaClient(): PrismaClient {
     throw new Error(
       'DATABASE_URL environment variable is not set.\n' +
         'Please set DATABASE_URL in your .env file or environment.\n' +
-        'Example: DATABASE_URL=postgresql://user:password@localhost:5432/umami',
+        'Example: DATABASE_URL=file:./umami.db',
     );
   }
 
-  let schema: string | undefined;
-  try {
-    const connectionUrl = new URL(url);
-    schema = connectionUrl.searchParams.get('schema') ?? undefined;
-  } catch {
+  if (!url.startsWith('file:')) {
     throw new Error(
       'DATABASE_URL is not a valid URL.\n' +
-        'Expected format: postgresql://user:password@host:port/database\n' +
+        'Expected format: file:./umami.db\n' +
         `Received: ${url.substring(0, 30)}...`,
     );
   }
 
-  const adapter = new PrismaPg({ connectionString: url }, { schema });
+  const adapter = new PrismaBetterSqlite3({ url });
 
   return new PrismaClient({
     adapter,

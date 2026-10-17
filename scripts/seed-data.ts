@@ -83,7 +83,7 @@ Generated Sites:
 
 Note:
   This script is blocked from running in production environments
-  (NODE_ENV=production or cloud platforms like Vercel/Netlify/Railway).
+  (NODE_ENV=production or Railway).
 `);
 }
 
@@ -96,7 +96,7 @@ function checkEnvironment(): void {
     process.exit(1);
   }
 
-  if (process.env.VERCEL || process.env.NETLIFY || process.env.RAILWAY_ENVIRONMENT) {
+  if (process.env.RAILWAY_ENVIRONMENT) {
     console.error('\nError: db:seed cannot run in cloud environments.');
     console.error('This script is only for local development and testing.\n');
     process.exit(1);

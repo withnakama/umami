@@ -11,11 +11,6 @@ if (process.env.SKIP_BUILD_GEO) {
   process.exit(0);
 }
 
-if (process.env.VERCEL && !process.env.BUILD_GEO) {
-  console.log('Vercel environment detected. Skipping geo setup.');
-  process.exit(0);
-}
-
 const db = 'GeoLite2-City';
 
 // Support custom URL via environment variable

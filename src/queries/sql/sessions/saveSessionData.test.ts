@@ -36,7 +36,7 @@ describe('relationalQuery', () => {
     expect(query).toContain('insert into session_data');
     expect(query).toContain('on conflict (session_id, data_key)');
     expect(query).toContain('do update set');
-    expect(query).toContain('coalesce({{createdAt}}, now())');
+    expect(query).toContain("coalesce({{createdAt}}, strftime('%Y-%m-%dT%H:%M:%f+00:00', 'now'))");
     expect(query).toContain('created_at = coalesce({{createdAt}}, session_data.created_at)');
     expect(query).toContain('{{id}}');
     expect(query).toContain('{{websiteId}}');
@@ -67,7 +67,7 @@ describe('relationalQuery', () => {
 
     const [query, params] = writeRawQueryMock.mock.calls[0];
 
-    expect(query).toContain('coalesce({{createdAt}}, now())');
+    expect(query).toContain("coalesce({{createdAt}}, strftime('%Y-%m-%dT%H:%M:%f+00:00', 'now'))");
     expect(query).toContain('created_at = coalesce({{createdAt}}, session_data.created_at)');
     expect(params.createdAt).toBeUndefined();
   });

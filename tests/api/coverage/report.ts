@@ -53,10 +53,7 @@ export function computeCoverage(): CoverageSummary {
   const operations = loadOperations();
   const { covered, unmatched } = readRecordedCalls();
   const known = new Set(operations.map(operation => operation.key));
-  const db = process.env.UMAMI_TEST_DB === 'clickhouse' ? 'clickhouse' : 'postgres';
-  const allowed = new Set(
-    allowlist.filter(entry => !entry.db || entry.db === db).map(entry => entry.key),
-  );
+  const allowed = new Set(allowlist.map(entry => entry.key));
 
   return {
     total: operations.length,

@@ -2,8 +2,7 @@ import { SEED_IDS } from './ids';
 
 /**
  * Deterministic analytics dataset ingested through the real collection
- * endpoints (/api/send, /api/batch, /api/record). Works for both Postgres and
- * ClickHouse. Backdated events use `timestamp` (seconds).
+ * endpoints (/api/send, /api/batch, /api/record). Backdated events use `timestamp` (seconds).
  *
  * IPs are private on purpose: the test image has no GeoLite database and
  * src/lib/detect.ts throws on a non-local IP lookup.

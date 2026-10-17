@@ -8,15 +8,14 @@ test.describe('System', () => {
     expect(response.body).toEqual({ ok: true });
   });
 
-  test('GET /api/config reports the runtime feature flags', async ({ api, seed }) => {
+  test('GET /api/config reports the runtime feature flags', async ({ api }) => {
     const response = await api.get('/api/config');
 
     expect(response.status).toBe(200);
     expect(response.body).toMatchObject({
       cloudMode: false,
       privateMode: false,
-      // Session deletion is only supported when analytics live in Postgres.
-      sessionDeletionEnabled: seed.db === 'postgres',
+      sessionDeletionEnabled: true,
     });
     expect(typeof response.body.telemetryDisabled).toBe('boolean');
     expect(typeof response.body.updatesDisabled).toBe('boolean');

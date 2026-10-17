@@ -9,25 +9,11 @@ const { rawQueryMock, parseFiltersMock, getDateSQLMock } = vi.hoisted(() => ({
   getDateSQLMock: vi.fn(),
 }));
 
-vi.mock('@/lib/db', () => ({
-  CLICKHOUSE: 'clickhouse',
-  PRISMA: 'prisma',
-  runQuery: vi.fn((queries: Record<string, () => unknown>) => queries.prisma()),
-}));
-
 vi.mock('@/lib/prisma', () => ({
   default: {
     rawQuery: rawQueryMock,
     parseFilters: parseFiltersMock,
     getDateSQL: getDateSQLMock,
-  },
-}));
-
-vi.mock('@/lib/clickhouse', () => ({
-  default: {
-    rawQuery: vi.fn(),
-    parseFilters: vi.fn(),
-    getDateSQL: vi.fn(),
   },
 }));
 

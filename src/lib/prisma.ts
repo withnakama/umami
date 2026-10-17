@@ -1,10 +1,20 @@
-import { PrismaPg } from '@prisma/adapter-pg';
-import { readReplicas } from '@prisma/extension-read-replicas';
 import debug from 'debug';
 import { PrismaClient } from '@/generated/prisma/client';
-import { DATA_TYPE, DEFAULT_PAGE_SIZE, FILTER_COLUMNS, OPERATORS, SESSION_COLUMNS } from './constants';
+import {
+  DATA_TYPE,
+  DEFAULT_PAGE_SIZE,
+  FILTER_COLUMNS,
+  OPERATORS,
+  SESSION_COLUMNS,
+} from './constants';
 import { filtersObjectToArray } from './params';
+import { SqliteAdapter } from './sqlite';
 import type { Operator, PropertyFilter, QueryFilters, QueryOptions } from './types';
+
+// Raw SQLite count queries can return bigint values.
+(BigInt.prototype as unknown as { toJSON(): number }).toJSON = function () {
+  return Number(this);
+};
 
 const log = debug('umami:prisma');
 
@@ -23,83 +33,43 @@ const PRISMA_LOG_OPTIONS = {
   ],
 };
 
-export interface RawQueryExecutor {
-  $executeRawUnsafe: (query: string, ...params: any[]) => unknown;
-  $queryRawUnsafe: (query: string, ...params: any[]) => unknown;
-}
-
-export interface RawQueryClient extends RawQueryExecutor {
-  $primary?: () => unknown;
-  $replica?: () => unknown;
-}
-
-function isRawQueryExecutor(value: unknown): value is RawQueryExecutor {
-  return !!value && typeof value === 'object' && '$executeRawUnsafe' in value && '$queryRawUnsafe' in value;
-}
-
-export function getRawQueryClient(
-  client: RawQueryClient,
-  {
-    useReplica = false,
-    write = false,
-  }: {
-    useReplica?: boolean;
-    write?: boolean;
-  } = {},
-) {
-  if (write) {
-    const primary = typeof client.$primary === 'function' ? client.$primary() : null;
-    return isRawQueryExecutor(primary) ? primary : client;
-  }
-
-  if (useReplica && typeof client.$replica === 'function') {
-    const replica = client.$replica();
-
-    if (isRawQueryExecutor(replica)) {
-      return replica;
-    }
-  }
-
-  return client;
-}
-
-// Always Z-suffixed so JS parses the already-shifted local value as an unambiguous
-// instant instead of re-interpreting it in the runtime's own timezone.
 const DATE_FORMATS = {
-  minute: 'YYYY-MM-DD"T"HH24:MI:00"Z"',
-  hour: 'YYYY-MM-DD"T"HH24:00:00"Z"',
-  day: 'YYYY-MM-DD"T"HH24:00:00"Z"',
-  month: 'YYYY-MM-01"T"HH24:00:00"Z"',
-  year: 'YYYY-01-01"T"HH24:00:00"Z"',
+  minute: '%Y-%m-%dT%H:%M:00Z',
+  hour: '%Y-%m-%dT%H:00:00Z',
+  day: '%Y-%m-%dT00:00:00Z',
+  month: '%Y-%m-01T00:00:00Z',
+  year: '%Y-01-01T00:00:00Z',
 };
 
 const DATE_STRING_FORMATS = {
-  utc: 'YYYY-MM-DD"T"HH24:MI:SS"Z"',
-  second: 'YYYY-MM-DD"T"HH24:MI:SS"Z"',
+  utc: '%Y-%m-%dT%H:%M:%SZ',
+  second: '%Y-%m-%dT%H:%M:%SZ',
 };
 
 function isUtcTimezone(timezone?: string) {
   return timezone?.toLowerCase() === 'utc';
 }
 
+function getZonedDateField(field: string, timezone?: string) {
+  if (!timezone || isUtcTimezone(timezone)) return field;
+  new Intl.DateTimeFormat('en-US', { timeZone: timezone });
+  return `timezone_datetime(${field}, '${timezone}')`;
+}
+
 function getAddIntervalQuery(field: string, interval: string): string {
-  return `${field} + interval '${interval}'`;
+  return `strftime('%Y-%m-%dT%H:%M:%f+00:00', ${field}, '+${interval}')`;
 }
 
 function getDayDiffQuery(field1: string, field2: string): string {
-  return `${field1}::date - ${field2}::date`;
+  return `cast(julianday(${field1}) - julianday(${field2}) as integer)`;
 }
 
 function getCastColumnQuery(field: string, type: string): string {
-  return `${field}::${type}`;
+  return `cast(${field} as ${type})`;
 }
 
 function getDateSQL(field: string, unit: string, timezone?: string): string {
-  // Explicit `at time zone` even for UTC — `date_trunc` without one falls back to the
-  // DB session's ambient TimeZone setting, which this app never pins.
-  const tz = timezone && !isUtcTimezone(timezone) ? timezone : 'UTC';
-
-  return `to_char(date_trunc('${unit}', ${field} at time zone '${tz}'), '${DATE_FORMATS[unit]}')`;
+  return `strftime('${DATE_FORMATS[unit]}', ${getZonedDateField(field, timezone)})`;
 }
 
 function getDateStringSQL(
@@ -107,29 +77,23 @@ function getDateStringSQL(
   unit: keyof typeof DATE_STRING_FORMATS = 'utc',
   timezone?: string,
 ): string {
-  const isUtc = !timezone || isUtcTimezone(timezone);
-  const tz = isUtc ? 'UTC' : timezone;
-  const format = isUtc ? DATE_STRING_FORMATS.utc : DATE_STRING_FORMATS[unit];
-
-  return `to_char(${field} at time zone '${tz}', '${format}')`;
+  return `strftime('${DATE_STRING_FORMATS[unit]}', ${getZonedDateField(field, timezone)})`;
 }
 
 function getDateWeeklySQL(field: string, timezone?: string) {
-  const tz = timezone && !isUtcTimezone(timezone) ? timezone : 'UTC';
-
-  return `concat(extract(dow from (${field} at time zone '${tz}')), ':', to_char((${field} at time zone '${tz}'), 'HH24'))`;
+  return `strftime('%w:%H', ${getZonedDateField(field, timezone)})`;
 }
 
 export function getTimestampSQL(field: string) {
-  return `floor(extract(epoch from ${field}))`;
+  return `unixepoch(${field})`;
 }
 
 function getTimestampDiffSQL(field1: string, field2: string): string {
-  return `floor(extract(epoch from (${field2} - ${field1})))`;
+  return `(unixepoch(${field2}) - unixepoch(${field1}))`;
 }
 
 function getSearchSQL(column: string, param: string = 'search'): string {
-  return `and ${column} ilike {{${param}}}`;
+  return `and ${column} like {{${param}}}`;
 }
 
 function mapFilter(
@@ -303,14 +267,13 @@ function parseFilters(filters: Record<string, any>, options?: QueryOptions) {
   const cohortFilters = Object.fromEntries(
     Object.entries(filters).filter(([key]) => key.startsWith('cohort_')),
   );
-  const {
-    sql: eventPropertyFilterQuery,
-    params: eventPropertyFilterParams,
-  } = getEventPropertyFilterQuery((filters as QueryFilters).eventPropertyFilters, filters.timezone);
-  const {
-    sql: sessionPropertyFilterQuery,
-    params: sessionPropertyFilterParams,
-  } = getSessionPropertyFilterQuery((filters as QueryFilters).sessionPropertyFilters, filters.timezone);
+  const { sql: eventPropertyFilterQuery, params: eventPropertyFilterParams } =
+    getEventPropertyFilterQuery((filters as QueryFilters).eventPropertyFilters, filters.timezone);
+  const { sql: sessionPropertyFilterQuery, params: sessionPropertyFilterParams } =
+    getSessionPropertyFilterQuery(
+      (filters as QueryFilters).sessionPropertyFilters,
+      filters.timezone,
+    );
 
   return {
     joinSessionQuery:
@@ -318,7 +281,11 @@ function parseFilters(filters: Record<string, any>, options?: QueryOptions) {
         ? `inner join session on website_event.session_id = session.session_id and website_event.website_id = session.website_id`
         : '',
     dateQuery: getDateQuery(filters),
-    filterQuery: [getFilterQuery(filters, options), eventPropertyFilterQuery, sessionPropertyFilterQuery]
+    filterQuery: [
+      getFilterQuery(filters, options),
+      eventPropertyFilterQuery,
+      sessionPropertyFilterQuery,
+    ]
       .filter(Boolean)
       .join('\n'),
     queryParams: {
@@ -374,10 +341,7 @@ function getPropertyFilterQuery(
       case DATA_TYPE.date: {
         if (!value) return;
         params[valParam] = value;
-        const dateCol =
-          timezone && !isUtcTimezone(timezone)
-            ? `(date_value at time zone {{timezone}})::date`
-            : `(date_value at time zone 'utc')::date`;
+        const dateCol = `date(${getZonedDateField('date_value', timezone)})`;
         const opMap: Record<string, string> = {
           [OPERATORS.before]: `${dateCol} < {{${valParam}::date}}`,
           [OPERATORS.after]: `${dateCol} > {{${valParam}::date}}`,
@@ -392,12 +356,12 @@ function getPropertyFilterQuery(
           operator === OPERATORS.contains
             ? `exists (
                 select 1
-                from jsonb_array_elements_text(coalesce(string_value, '[]')::jsonb) as array_item(value)
+                from json_each(coalesce(string_value, '[]')) as array_item
                 where array_item.value = {{${valParam}}}
               )`
             : `not exists (
                 select 1
-                from jsonb_array_elements_text(coalesce(string_value, '[]')::jsonb) as array_item(value)
+                from json_each(coalesce(string_value, '[]')) as array_item
                 where array_item.value = {{${valParam}}}
               )`;
         break;
@@ -499,10 +463,7 @@ function getEventPropertyFilterQuery(
       case DATA_TYPE.date: {
         if (!value) return;
         params[valParam] = value;
-        const dateCol =
-          timezone && !isUtcTimezone(timezone)
-            ? `(date_value at time zone {{timezone}})::date`
-            : `(date_value at time zone 'utc')::date`;
+        const dateCol = `date(${getZonedDateField('date_value', timezone)})`;
         const opMap: Record<string, string> = {
           [OPERATORS.before]: `${dateCol} < {{${valParam}::date}}`,
           [OPERATORS.after]: `${dateCol} > {{${valParam}::date}}`,
@@ -517,12 +478,12 @@ function getEventPropertyFilterQuery(
           operator === OPERATORS.contains
             ? `exists (
                 select 1
-                from jsonb_array_elements_text(coalesce(string_value, '[]')::jsonb) as array_item(value)
+                from json_each(coalesce(string_value, '[]')) as array_item
                 where array_item.value = {{${valParam}}}
               )`
             : `not exists (
                 select 1
-                from jsonb_array_elements_text(coalesce(string_value, '[]')::jsonb) as array_item(value)
+                from json_each(coalesce(string_value, '[]')) as array_item
                 where array_item.value = {{${valParam}}}
               )`;
         break;
@@ -625,10 +586,7 @@ function getSessionPropertyFilterQuery(
       case DATA_TYPE.date: {
         if (!value) return;
         params[valParam] = value;
-        const dateCol =
-          timezone && !isUtcTimezone(timezone)
-            ? `(date_value at time zone {{timezone}})::date`
-            : `(date_value at time zone 'utc')::date`;
+        const dateCol = `date(${getZonedDateField('date_value', timezone)})`;
         const opMap: Record<string, string> = {
           [OPERATORS.before]: `${dateCol} < {{${valParam}::date}}`,
           [OPERATORS.after]: `${dateCol} > {{${valParam}::date}}`,
@@ -643,12 +601,12 @@ function getSessionPropertyFilterQuery(
           operator === OPERATORS.contains
             ? `exists (
                 select 1
-                from jsonb_array_elements_text(coalesce(string_value, '[]')::jsonb) as array_item(value)
+                from json_each(coalesce(string_value, '[]')) as array_item
                 where array_item.value = {{${valParam}}}
               )`
             : `not exists (
                 select 1
-                from jsonb_array_elements_text(coalesce(string_value, '[]')::jsonb) as array_item(value)
+                from json_each(coalesce(string_value, '[]')) as array_item
                 where array_item.value = {{${valParam}}}
               )`;
         break;
@@ -714,7 +672,6 @@ async function executeRawQuery(
   sql: string,
   data: Record<string, any>,
   name?: string,
-  write = false,
 ): Promise<any> {
   if (process.env.LOG_QUERY) {
     log('QUERY:\n', sql);
@@ -722,28 +679,33 @@ async function executeRawQuery(
     log('NAME:\n', name);
   }
   const params = [];
-  const schema = getSchema();
+  const sqliteSql = sql
+    .replace(/=\s*ANY\(\{\{(\w+)}}(?:::uuid\[\])?\)/gi, 'IN ({{$1}})')
+    .replace(/!=\s*ALL\(\{\{(\w+)}}\)/gi, 'NOT IN ({{$1}})')
+    .replace(/\bILIKE\b/gi, 'LIKE')
+    .replace(/!~\*/g, 'NOT REGEXP')
+    .replace(/~\*/g, 'REGEXP')
+    .replace(/\bbool_or\(/gi, 'max(')
+    .replace(
+      /percentile_cont\((\d+(?:\.\d+)?)\)\s+within\s+group\s*\(order by ([\w.]+)\)/gi,
+      'percentile_cont($2, $1)',
+    );
 
-  const query = sql?.replaceAll(/\{\{\s*(\w+)(::\w+)?\s*}}/g, (...args) => {
-    const [, name, type] = args;
+  const query = sqliteSql.replaceAll(/\{\{\s*(\w+)(::\w+)?\s*}}/g, (...args) => {
+    const [, name] = args;
 
     const value = data[name];
 
+    if (Array.isArray(value)) {
+      params.push(...value);
+      return value.length ? value.map(() => '?').join(', ') : 'NULL';
+    }
+
     params.push(value);
-
-    return `$${params.length}${type ?? ''}`;
+    return '?';
   });
 
-  const queryClient = getRawQueryClient(client, {
-    useReplica: !!process.env.DATABASE_REPLICA_URL,
-    write,
-  });
-
-  if (schema) {
-    await queryClient.$executeRawUnsafe(`SET search_path TO "${schema}";`);
-  }
-
-  return queryClient.$queryRawUnsafe(query, ...params);
+  return client.$queryRawUnsafe(query, ...params);
 }
 
 async function rawQuery(sql: string, data: Record<string, any>, name?: string): Promise<any> {
@@ -751,7 +713,7 @@ async function rawQuery(sql: string, data: Record<string, any>, name?: string): 
 }
 
 async function writeRawQuery(sql: string, data: Record<string, any>, name?: string): Promise<any> {
-  return executeRawQuery(sql, data, name, true);
+  return executeRawQuery(sql, data, name);
 }
 
 async function pagedQuery<T>(model: string, criteria: T, filters?: QueryFilters) {
@@ -825,7 +787,6 @@ function getSearchParameters(query: string, filters: Record<string, any>[]) {
         typeof value === 'string'
           ? {
               [value]: query,
-              mode: 'insensitive',
             }
           : parseFilter(value),
     };
@@ -844,30 +805,18 @@ function transaction(input: any, options?: any) {
   return client.$transaction(input, options);
 }
 
-export function getSchema() {
-  const databaseUrl = process.env.DATABASE_URL;
-
-  if (!databaseUrl) {
-    throw new Error('DATABASE_URL is not set.');
-  }
-
-  const connectionUrl = new URL(databaseUrl);
-
-  return connectionUrl.searchParams.get('schema');
-}
-
 function getClient() {
   const url = process.env.DATABASE_URL;
-  const replicaUrl = process.env.DATABASE_REPLICA_URL;
   const logQuery = process.env.LOG_QUERY;
 
   if (!url) {
     throw new Error('DATABASE_URL is not set.');
   }
+  if (!url.startsWith('file:')) {
+    throw new Error('DATABASE_URL must be a SQLite file: URL.');
+  }
 
-  const schema = getSchema();
-
-  const baseAdapter = new PrismaPg({ connectionString: url }, { schema });
+  const baseAdapter = new SqliteAdapter({ url });
 
   const baseClient = new PrismaClient({
     adapter: baseAdapter,
@@ -879,34 +828,9 @@ function getClient() {
     baseClient.$on('query', log);
   }
 
-  if (!replicaUrl) {
-    log('Prisma initialized');
-    globalThis[PRISMA] ??= baseClient;
-    return baseClient;
-  }
-
-  const replicaAdapter = new PrismaPg({ connectionString: replicaUrl }, { schema });
-
-  const replicaClient = new PrismaClient({
-    adapter: replicaAdapter,
-    errorFormat: 'pretty',
-    ...(logQuery ? PRISMA_LOG_OPTIONS : {}),
-  });
-
-  if (logQuery) {
-    replicaClient.$on('query', log);
-  }
-
-  const extended = baseClient.$extends(
-    readReplicas({
-      replicas: [replicaClient],
-    }),
-  );
-
-  log('Prisma initialized (with replica)');
-  globalThis[PRISMA] ??= extended;
-
-  return extended;
+  log('Prisma initialized');
+  globalThis[PRISMA] ??= baseClient;
+  return baseClient;
 }
 
 const client = (globalThis[PRISMA] || getClient()) as ReturnType<typeof getClient>;

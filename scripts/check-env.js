@@ -18,10 +18,10 @@ function checkMissing(vars) {
   }
 }
 
-if (!process.env.SKIP_DB_CHECK && !process.env.DATABASE_TYPE) {
-  checkMissing(['DATABASE_URL']);
+if (!process.env.SKIP_DB_CHECK) {
+  checkMissing(['DATABASE_URL', 'APP_SECRET']);
 }
 
 if (process.env.CLOUD_URL) {
-  checkMissing(['CLOUD_URL', 'CLICKHOUSE_URL', 'REDIS_URL']);
+  checkMissing(['CLOUD_URL', 'REDIS_URL']);
 }

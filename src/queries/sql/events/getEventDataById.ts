@@ -1,6 +1,4 @@
 import type { EventData } from '@/generated/prisma/client';
-import clickhouse from '@/lib/clickhouse';
-import { CLICKHOUSE, PRISMA, runQuery } from '@/lib/db';
 import prisma from '@/lib/prisma';
 
 const FUNCTION_NAME = 'getEventDataById';
@@ -8,10 +6,7 @@ const FUNCTION_NAME = 'getEventDataById';
 export async function getEventDataById(
   ...args: [websiteId: string, eventId: string]
 ): Promise<EventData[]> {
-  return runQuery({
-    [PRISMA]: () => relationalQuery(...args),
-    [CLICKHOUSE]: () => clickhouseQuery(...args),
-  });
+  return relationalQuery(...args);
 }
 
 async function relationalQuery(websiteId: string, eventId: string) {
@@ -33,29 +28,6 @@ async function relationalQuery(websiteId: string, eventId: string) {
       and website_event.website_id = {{websiteId::uuid}}
     where event_data.website_id = {{websiteId::uuid}}
       and event_data.website_event_id = {{eventId::uuid}}
-    `,
-    { websiteId, eventId },
-    FUNCTION_NAME,
-  );
-}
-
-async function clickhouseQuery(websiteId: string, eventId: string): Promise<EventData[]> {
-  const { rawQuery } = clickhouse;
-
-  return rawQuery(
-    `
-      select website_id as websiteId,
-        event_id as eventId,
-        event_name as eventName,
-        data_key as dataKey,
-        string_value as stringValue,
-        number_value as numberValue,
-        date_value as dateValue,
-        data_type as dataType,
-        created_at as createdAt
-      from event_data
-      where website_id = {websiteId:UUID}
-        and event_id = {eventId:UUID}
     `,
     { websiteId, eventId },
     FUNCTION_NAME,

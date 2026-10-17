@@ -10,7 +10,6 @@ export interface SeedCredentials {
 
 /** Written by global setup to tests/api/.runtime/seed.json and read by the fixtures. */
 export interface SeedState {
-  db: 'postgres' | 'clickhouse';
   createdAt: string;
   admin: SeedCredentials;
   user: SeedCredentials;

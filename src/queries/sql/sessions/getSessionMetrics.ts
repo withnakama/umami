@@ -1,6 +1,4 @@
-import clickhouse from '@/lib/clickhouse';
-import { EVENT_COLUMNS, FILTER_COLUMNS, SESSION_COLUMNS } from '@/lib/constants';
-import { CLICKHOUSE, PRISMA, runQuery } from '@/lib/db';
+import { FILTER_COLUMNS, SESSION_COLUMNS } from '@/lib/constants';
 import prisma from '@/lib/prisma';
 import type { QueryFilters } from '@/lib/types';
 
@@ -15,10 +13,7 @@ export interface SessionMetricsParameters {
 export async function getSessionMetrics(
   ...args: [websiteId: string, parameters: SessionMetricsParameters, filters: QueryFilters]
 ) {
-  return runQuery({
-    [PRISMA]: () => relationalQuery(...args),
-    [CLICKHOUSE]: () => clickhouseQuery(...args),
-  });
+  return relationalQuery(...args);
 }
 
 async function relationalQuery(
@@ -69,69 +64,4 @@ async function relationalQuery(
     { ...queryParams, ...parameters },
     FUNCTION_NAME,
   );
-}
-
-async function clickhouseQuery(
-  websiteId: string,
-  parameters: SessionMetricsParameters,
-  filters: QueryFilters,
-): Promise<{ x: string; y: number }[]> {
-  const { type, limit = 500, offset = 0 } = parameters;
-  let column = FILTER_COLUMNS[type] || type;
-  const { parseFilters, rawQuery } = clickhouse;
-  const { filterQuery, cohortQuery, excludeBounceQuery, queryParams } = parseFilters({
-    ...filters,
-    websiteId,
-  });
-  const includeCountry = column === 'city' || column === 'region';
-
-  if (type === 'language') {
-    column = `lower(left(${type}, 2))`;
-  }
-
-  let sql = '';
-
-  if (EVENT_COLUMNS.some(item => Object.keys(filters).includes(item))) {
-    sql = `
-    select
-      ${column} x,
-      count(distinct session_id) y
-      ${includeCountry ? ', country' : ''}
-    from website_event
-    ${cohortQuery}
-    ${excludeBounceQuery}
-    where website_id = {websiteId:UUID}
-      and created_at between {startDate:DateTime64} and {endDate:DateTime64}
-      and event_type NOT IN (2, 5)
-      and ${column} != ''
-      ${filterQuery}
-    group by x
-    ${includeCountry ? ', country' : ''}
-    order by y desc
-    limit ${limit}
-    offset ${offset}
-    `;
-  } else {
-    sql = `
-    select
-      ${column} x,
-      uniq(session_id) y
-      ${includeCountry ? ', country' : ''}
-    from website_event_stats_hourly as website_event
-    ${cohortQuery}
-    ${excludeBounceQuery}
-    where website_id = {websiteId:UUID}
-      and created_at between {startDate:DateTime64} and {endDate:DateTime64}
-      and event_type NOT IN (2, 5)
-      and ${column} != ''
-      ${filterQuery}
-    group by x 
-    ${includeCountry ? ', country' : ''}
-    order by y desc
-    limit ${limit}
-    offset ${offset}
-    `;
-  }
-
-  return rawQuery(sql, { ...queryParams, ...parameters }, FUNCTION_NAME);
 }

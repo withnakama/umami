@@ -122,7 +122,7 @@ export default async function globalSetup(config: FullConfig) {
     writeFileSync(SEED_FILE, JSON.stringify(state, null, 2));
 
     console.log(
-      `Seeded ${state.db} environment in ${((Date.now() - started) / 1000).toFixed(1)}s ` +
+      `Seeded SQLite environment in ${((Date.now() - started) / 1000).toFixed(1)}s ` +
         `(${state.data.expectedPageviews} pageviews on ${state.website.domain})`,
     );
   } finally {

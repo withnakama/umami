@@ -8,7 +8,7 @@ FROM node:${NODE_IMAGE_VERSION} AS deps
 ARG PNPM_VERSION
 
 # Check https://github.com/nodejs/docker-node/tree/b4117f9333da4138b03a546ec926ef50a31506c3#nodealpine to understand why libc6-compat might be needed.
-RUN apk add --no-cache libc6-compat
+RUN apk add --no-cache libc6-compat python3 make g++
 WORKDIR /app
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
 # Workspace packages (@umami/api-client, @umami/mcp) must be present for a frozen install.
@@ -37,7 +37,7 @@ ARG BASE_PATH
 
 ENV BASE_PATH=$BASE_PATH
 ENV NEXT_TELEMETRY_DISABLED=1
-ENV DATABASE_URL="postgresql://user:pass@localhost:5432/dummy"
+ENV DATABASE_URL="file:/tmp/umami-build.db"
 
 ARG SKIP_BUILD_GEO
 ENV SKIP_BUILD_GEO=$SKIP_BUILD_GEO
@@ -62,19 +62,21 @@ RUN adduser --system --uid 1001 nextjs
 # vulnerable packages vendored inside the npm CLI are not shipped in the final
 # image. pnpm is the only package manager needed at build and runtime.
 RUN set -x \
-    && apk add --no-cache curl libc6-compat \
+    && apk add --no-cache curl libc6-compat python3 make g++ \
     && npm install -g pnpm@${PNPM_VERSION} \
     && rm -rf /usr/local/lib/node_modules/npm /usr/local/bin/npm /usr/local/bin/npx
 
 RUN echo {} > package.json
 
-RUN printf "allowBuilds:\n  '@prisma/engines': true\n  prisma: false\nverifyDepsBeforeRun: false\n" > pnpm-workspace.yaml
+RUN printf "allowBuilds:\n  '@prisma/engines': true\n  better-sqlite3: true\n  prisma: false\nverifyDepsBeforeRun: false\n" > pnpm-workspace.yaml
 
 # Script dependencies
 RUN pnpm add npm-run-all dotenv chalk semver \
     prisma@${PRISMA_VERSION} \
     @prisma/client@${PRISMA_VERSION} \
-    @prisma/adapter-pg@${PRISMA_VERSION}
+    @prisma/adapter-better-sqlite3@${PRISMA_VERSION}
+
+RUN apk del python3 make g++
 
 # Assert the @prisma/engines postinstall actually downloaded the engine
 # binaries. If pnpm blocked the build script (e.g. allowBuilds not honored by
@@ -93,6 +95,8 @@ COPY --from=builder /app/generated ./generated
 # https://nextjs.org/docs/advanced-features/output-file-tracing
 COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
 COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
+
+RUN mkdir -p /app/data && chown nextjs:nodejs /app/data
 
 USER nextjs
 

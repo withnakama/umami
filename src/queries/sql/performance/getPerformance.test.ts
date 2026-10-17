@@ -4,7 +4,6 @@ import { getPerformanceChart } from './getPerformanceChart';
 import { getPerformanceStats } from './getPerformanceStats';
 
 const mocks = vi.hoisted(() => ({
-  backend: 'prisma',
   rawQuery: vi.fn(),
   parseFilters: vi.fn(() => ({
     queryParams: {},
@@ -13,19 +12,7 @@ const mocks = vi.hoisted(() => ({
     joinSessionQuery: '',
   })),
 }));
-vi.mock('@/lib/db', () => ({
-  PRISMA: 'prisma',
-  CLICKHOUSE: 'clickhouse',
-  runQuery: (queries: any) => queries[mocks.backend](),
-}));
 vi.mock('@/lib/prisma', () => ({
-  default: {
-    rawQuery: mocks.rawQuery,
-    parseFilters: mocks.parseFilters,
-    getDateSQL: () => 'bucket',
-  },
-}));
-vi.mock('@/lib/clickhouse', () => ({
   default: {
     rawQuery: mocks.rawQuery,
     parseFilters: mocks.parseFilters,
@@ -40,9 +27,8 @@ const parameters = {
   metric: 'inp',
 };
 
-describe.each(['prisma', 'clickhouse'])('%s performance datasets', backend => {
+describe('SQLite performance datasets', () => {
   beforeEach(() => {
-    mocks.backend = backend;
     mocks.rawQuery.mockReset().mockResolvedValue([]);
   });
   test('chart executes only the selected metric time series', async () => {

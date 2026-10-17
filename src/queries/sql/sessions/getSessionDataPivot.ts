@@ -1,6 +1,4 @@
-import clickhouse from '@/lib/clickhouse';
 import { EVENT_TYPE } from '@/lib/constants';
-import { CLICKHOUSE, PRISMA, runQuery } from '@/lib/db';
 import prisma from '@/lib/prisma';
 import type { PageResult, PropertyFilter, QueryFilters, SessionDataPivotRow } from '@/lib/types';
 
@@ -14,10 +12,7 @@ export async function getSessionDataPivot(
     propertyFilters?: PropertyFilter[],
   ]
 ): Promise<PageResult<SessionDataPivotRow[]>> {
-  return runQuery({
-    [PRISMA]: () => relationalQuery(...args),
-    [CLICKHOUSE]: () => clickhouseQuery(...args),
-  });
+  return relationalQuery(...args);
 }
 
 async function relationalQuery(
@@ -40,7 +35,7 @@ async function relationalQuery(
     timezone,
   );
 
-  return pagedRawQuery(
+  const result = await pagedRawQuery(
     `
     with filtered_sessions as (
       select distinct website_event.session_id
@@ -95,8 +90,8 @@ async function relationalQuery(
       latest_session_properties.session_id as "sessionId",
       coalesce(max(latest_session_properties.distinct_id), '') as "distinctId",
       max(latest_session_properties.created_at) as "createdAt",
-      array_agg(latest_session_properties.data_key order by latest_session_properties.data_key asc) as "propertyKeys",
-      array_agg(
+      json_group_array(latest_session_properties.data_key order by latest_session_properties.data_key asc) as "propertyKeys",
+      json_group_array(
         coalesce(
           case when latest_session_properties.data_type = 1 then latest_session_properties.string_value end,
           case when latest_session_properties.data_type = 2 then cast(latest_session_properties.number_value as varchar) end,
@@ -117,88 +112,13 @@ async function relationalQuery(
     filters,
     FUNCTION_NAME,
   );
-}
 
-async function clickhouseQuery(
-  websiteId: string,
-  propertyName: string,
-  filters: QueryFilters,
-  propertyFilters: PropertyFilter[] = [],
-) {
-  const { timezone = 'UTC' } = filters;
-  const { pagedRawQuery, parseFilters, getPropertyFilterQuery, getDateStringSQL } = clickhouse;
-
-  const { filterQuery, cohortQuery, queryParams } = parseFilters({
-    ...filters,
-    websiteId,
-    timezone,
-  });
-  const { sql: pfSQL, params: pfParams } = getPropertyFilterQuery(
-    propertyFilters,
-    'session',
-    timezone,
-  );
-
-  return pagedRawQuery(
-    `
-    with filtered_sessions as (
-      select distinct website_event.session_id
-      from website_event
-      ${cohortQuery}
-      where website_event.website_id = {websiteId:UUID}
-        and website_event.created_at between {startDate:DateTime64} and {endDate:DateTime64}
-        and website_event.event_type != ${EVENT_TYPE.performance}
-      ${filterQuery}
-      ${pfSQL}
-    ),
-    latest_session_properties as (
-      select
-        session_data.session_id as session_id,
-        argMax(ifNull(session_data.distinct_id, ''), session_data.created_at) as distinct_id,
-        session_data.data_key as data_key,
-        argMax(session_data.data_type, session_data.created_at) as data_type,
-        argMax(session_data.string_value, session_data.created_at) as string_value,
-        argMax(session_data.number_value, session_data.created_at) as number_value,
-        argMax(session_data.date_value, session_data.created_at) as date_value,
-        max(session_data.created_at) as created_at
-      from session_data final
-      join filtered_sessions
-        on filtered_sessions.session_id = session_data.session_id
-      where session_data.website_id = {websiteId:UUID}
-      group by
-        session_data.session_id,
-        session_data.data_key
-    ),
-    paged_sessions as (
-      select
-        latest_session_properties.session_id,
-        latest_session_properties.created_at as sort_created_at
-      from latest_session_properties
-      where latest_session_properties.data_key = {propertyName:String}
-    )
-    select
-      latest_session_properties.session_id as sessionId,
-      max(latest_session_properties.distinct_id) as distinctId,
-      max(latest_session_properties.created_at) as createdAt,
-      groupArray(latest_session_properties.data_key) as propertyKeys,
-      groupArray(
-        multiIf(
-          latest_session_properties.data_type IN (1, 3, 5), ifNull(latest_session_properties.string_value, ''),
-          latest_session_properties.data_type = 2, toString(ifNull(latest_session_properties.number_value, 0)),
-          latest_session_properties.data_type = 4, ${getDateStringSQL('latest_session_properties.date_value', 'second', timezone)},
-          ''
-        )
-      ) as propertyValues
-    from latest_session_properties
-    join paged_sessions
-      on paged_sessions.session_id = latest_session_properties.session_id
-    group by
-      latest_session_properties.session_id,
-      paged_sessions.sort_created_at
-    order by paged_sessions.sort_created_at desc
-    `,
-    { ...queryParams, websiteId, propertyName, ...pfParams },
-    filters,
-    FUNCTION_NAME,
-  );
+  return {
+    ...result,
+    data: result.data.map(row => ({
+      ...row,
+      propertyKeys: JSON.parse(row.propertyKeys),
+      propertyValues: JSON.parse(row.propertyValues),
+    })),
+  };
 }

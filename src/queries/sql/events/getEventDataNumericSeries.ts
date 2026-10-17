@@ -1,5 +1,3 @@
-import clickhouse from '@/lib/clickhouse';
-import { CLICKHOUSE, PRISMA, runQuery } from '@/lib/db';
 import prisma from '@/lib/prisma';
 import type { EventPropertyFilter, QueryFilters, TimeSeriesValue } from '@/lib/types';
 
@@ -15,10 +13,7 @@ export async function getEventDataNumericSeries(
     eventFilters?: EventPropertyFilter[],
   ]
 ): Promise<TimeSeriesValue[]> {
-  return runQuery({
-    [PRISMA]: () => relationalQuery(...args),
-    [CLICKHOUSE]: () => clickhouseQuery(...args),
-  });
+  return relationalQuery(...args);
 }
 
 async function relationalQuery(
@@ -65,61 +60,6 @@ async function relationalQuery(
       ${pfSQL}
     group by 1
     order by 1
-    `,
-    { ...queryParams, eventName, propertyName, ...pfParams },
-    FUNCTION_NAME,
-  );
-}
-
-async function clickhouseQuery(
-  websiteId: string,
-  eventName: string,
-  propertyName: string,
-  metric: 'sum' | 'avg' | 'count',
-  filters: QueryFilters,
-  eventFilters: EventPropertyFilter[] = [],
-): Promise<{ t: string; y: number }[]> {
-  const { timezone = 'UTC', unit = 'day' } = filters;
-  const { rawQuery, getDateSQL, parseFilters, getPropertyFilterQuery } = clickhouse;
-  const { filterQuery, cohortQuery, queryParams } = parseFilters({
-    ...filters,
-    websiteId,
-    timezone,
-  });
-  const { sql: pfSQL, params: pfParams } = getPropertyFilterQuery(eventFilters, 'event', timezone);
-  const aggSql =
-    metric === 'avg'
-      ? 'avg(event_data.number_value)'
-      : metric === 'count'
-        ? 'count()'
-        : 'sum(event_data.number_value)';
-
-  return rawQuery(
-    `
-    select
-      ${getDateSQL('event_data.created_at', unit, timezone)} as t,
-      ${aggSql} as y
-    from event_data
-    any left join (
-          select *
-          from website_event
-          where website_id = {websiteId:UUID}
-            and created_at between {startDate:DateTime64} and {endDate:DateTime64}
-            and event_type = 2
-            and event_name = {eventName:String}) website_event
-    on website_event.event_id = event_data.event_id
-      and website_event.session_id = event_data.session_id
-      and website_event.website_id = event_data.website_id
-    ${cohortQuery}
-    where event_data.website_id = {websiteId:UUID}
-      and event_data.created_at between {startDate:DateTime64} and {endDate:DateTime64}
-      and event_data.event_name = {eventName:String}
-      and event_data.data_key = {propertyName:String}
-      and event_data.data_type = 2
-    ${filterQuery}
-    ${pfSQL}
-    group by t
-    order by t
     `,
     { ...queryParams, eventName, propertyName, ...pfParams },
     FUNCTION_NAME,

@@ -1,6 +1,4 @@
-import clickhouse from '@/lib/clickhouse';
 import { DATA_TYPE, EVENT_TYPE } from '@/lib/constants';
-import { CLICKHOUSE, PRISMA, runQuery } from '@/lib/db';
 import prisma from '@/lib/prisma';
 import type { PropertyValue, QueryFilters } from '@/lib/types';
 
@@ -9,10 +7,7 @@ const FUNCTION_NAME = 'getSessionDataValues';
 export async function getSessionDataValues(
   ...args: [websiteId: string, filters: QueryFilters & { propertyName?: string; dataType?: number }]
 ): Promise<PropertyValue[]> {
-  return runQuery({
-    [PRISMA]: () => relationalQuery(...args),
-    [CLICKHOUSE]: () => clickhouseQuery(...args),
-  });
+  return relationalQuery(...args);
 }
 
 async function relationalQuery(
@@ -38,7 +33,7 @@ async function relationalQuery(
       join session_data
           on session_data.session_id = website_event.session_id
             and session_data.website_id = website_event.website_id
-      cross join lateral jsonb_array_elements_text(coalesce(session_data.string_value, '[]')::jsonb) as array_item(value)
+      cross join json_each(coalesce(session_data.string_value, '[]')) as array_item
       where website_event.website_id = {{websiteId::uuid}}
         and website_event.created_at between {{startDate}} and {{endDate}}
         and website_event.event_type != ${EVENT_TYPE.performance}
@@ -73,67 +68,6 @@ async function relationalQuery(
       and website_event.created_at between {{startDate}} and {{endDate}}
       and website_event.event_type != ${EVENT_TYPE.performance}
       and session_data.data_key = {{propertyName}}
-      ${dataType ? `and session_data.data_type = ${dataType}` : ''}
-    ${filterQuery}
-    group by value
-    order by 2 desc
-    limit 500
-    `,
-    queryParams,
-    FUNCTION_NAME,
-  );
-}
-
-async function clickhouseQuery(
-  websiteId: string,
-  filters: QueryFilters & { propertyName?: string; dataType?: number },
-): Promise<PropertyValue[]> {
-  const { rawQuery, parseFilters } = clickhouse;
-  const { dataType } = filters;
-  const { filterQuery, cohortQuery, queryParams } = parseFilters({ ...filters, websiteId });
-
-  if (dataType === DATA_TYPE.array) {
-    return rawQuery(
-      `
-      select
-        arrayJoin(JSONExtract(ifNull(session_data.string_value, '[]'), 'Array(String)')) as "value",
-        count() as "total"
-      from website_event
-      ${cohortQuery}
-      join session_data final
-        on session_data.session_id = website_event.session_id
-          and session_data.website_id = {websiteId:UUID}
-      where website_event.website_id = {websiteId:UUID}
-        and website_event.created_at between {startDate:DateTime64} and {endDate:DateTime64}
-        and website_event.event_type != ${EVENT_TYPE.performance}
-        and session_data.data_key = {propertyName:String}
-        and session_data.data_type = ${DATA_TYPE.array}
-      ${filterQuery}
-      group by value
-      order by 2 desc
-      limit 500
-      `,
-      queryParams,
-      FUNCTION_NAME,
-    );
-  }
-
-  return rawQuery(
-    `
-    select
-      multiIf(data_type = 2, replaceAll(string_value, '.0000', ''),
-              data_type = 4, toString(date_trunc('hour', date_value)),
-              string_value) as "value",
-      count() as "total"
-    from website_event
-    ${cohortQuery}
-    join session_data final
-      on session_data.session_id = website_event.session_id
-        and session_data.website_id = {websiteId:UUID}
-    where website_event.website_id = {websiteId:UUID}
-      and website_event.created_at between {startDate:DateTime64} and {endDate:DateTime64}
-      and website_event.event_type != ${EVENT_TYPE.performance}
-      and session_data.data_key = {propertyName:String}
       ${dataType ? `and session_data.data_type = ${dataType}` : ''}
     ${filterQuery}
     group by value

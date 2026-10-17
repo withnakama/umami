@@ -1,14 +1,10 @@
 import { beforeAll, describe, expect, test, vi } from 'vitest';
 
-process.env.DATABASE_URL ??= 'postgresql://user:pass@localhost:5432/umami?schema=public';
+process.env.DATABASE_URL ??= 'file:./umami-test.db';
 delete process.env.DATABASE_REPLICA_URL;
 
-vi.mock('@prisma/adapter-pg', () => ({
-  PrismaPg: class PrismaPg {},
-}));
-
-vi.mock('@prisma/extension-read-replicas', () => ({
-  readReplicas: () => () => ({}),
+vi.mock('@prisma/adapter-better-sqlite3', () => ({
+  PrismaBetterSqlite3: class PrismaBetterSqlite3 {},
 }));
 
 vi.mock('@/generated/prisma/client', () => ({
@@ -23,109 +19,57 @@ vi.mock('@/generated/prisma/client', () => ({
   },
 }));
 
-let getRawQueryClient!: typeof import('./prisma').getRawQueryClient;
 let prisma!: typeof import('./prisma').default;
 
 beforeAll(async () => {
-  ({ getRawQueryClient, default: prisma } = await import('./prisma'));
-});
-
-interface RawQueryClient {
-  $executeRawUnsafe: (query: string, ...params: any[]) => unknown;
-  $queryRawUnsafe: (query: string, ...params: any[]) => unknown;
-  $primary?: () => unknown;
-  $replica?: () => unknown;
-}
-
-function createClient(): RawQueryClient {
-  return {
-    $executeRawUnsafe: vi.fn(),
-    $queryRawUnsafe: vi.fn(),
-  };
-}
-
-describe('getRawQueryClient', () => {
-  test('uses a replica client for read queries when replicas are enabled', () => {
-    const replica = createClient();
-    const client = {
-      ...createClient(),
-      $replica: vi.fn(() => replica),
-    };
-
-    expect(getRawQueryClient(client, { useReplica: true })).toBe(replica);
-  });
-
-  test('keeps read queries on the primary client when replicas are disabled', () => {
-    const client = {
-      ...createClient(),
-      $replica: vi.fn(() => createClient()),
-    };
-
-    expect(getRawQueryClient(client, { useReplica: false })).toBe(client);
-  });
-
-  test('uses the primary client for raw writes when available', () => {
-    const primary = createClient();
-    const client = {
-      ...createClient(),
-      $primary: vi.fn(() => primary),
-      $replica: vi.fn(() => createClient()),
-    };
-
-    expect(getRawQueryClient(client, { useReplica: true, write: true })).toBe(primary);
-  });
-
-  test('falls back to the current client for raw writes without a primary helper', () => {
-    const client = createClient();
-
-    expect(getRawQueryClient(client, { write: true })).toBe(client);
-  });
+  ({ default: prisma } = await import('./prisma'));
 });
 
 describe('getDateSQL timezone formatting', () => {
-  test('formats UTC (default) buckets with an explicit zone and a Z marker', () => {
-    // Never rely on the DB session's ambient timezone.
+  test('formats UTC buckets as ISO timestamps', () => {
     expect(prisma.getDateSQL('website_event.created_at', 'hour')).toBe(
-      `to_char(date_trunc('hour', website_event.created_at at time zone 'UTC'), 'YYYY-MM-DD"T"HH24:00:00"Z"')`,
+      `strftime('%Y-%m-%dT%H:00:00Z', website_event.created_at)`,
     );
     expect(prisma.getDateSQL('website_event.created_at', 'hour', 'UTC')).toBe(
-      `to_char(date_trunc('hour', website_event.created_at at time zone 'UTC'), 'YYYY-MM-DD"T"HH24:00:00"Z"')`,
+      `strftime('%Y-%m-%dT%H:00:00Z', website_event.created_at)`,
     );
   });
 
-  test('formats non-UTC buckets with the same explicit Z marker, not a bare timestamp', () => {
-    // Bare timestamps get misparsed as local-to-the-runtime, not the source zone.
+  test('converts named timezones before bucketing', () => {
     expect(prisma.getDateSQL('website_event.created_at', 'hour', 'Asia/Tehran')).toBe(
-      `to_char(date_trunc('hour', website_event.created_at at time zone 'Asia/Tehran'), 'YYYY-MM-DD"T"HH24:00:00"Z"')`,
+      `strftime('%Y-%m-%dT%H:00:00Z', timezone_datetime(website_event.created_at, 'Asia/Tehran'))`,
     );
   });
 });
 
+test('serializes bigint query values as numbers', () => {
+  expect(JSON.stringify({ count: BigInt(42) })).toBe('{"count":42}');
+});
+
 describe('getDateStringSQL timezone formatting', () => {
-  test('formats non-UTC second-precision values with an explicit Z marker', () => {
-    expect(prisma.getDateStringSQL('event_data.date_value', 'second', 'Asia/Tehran')).toBe(
-      `to_char(event_data.date_value at time zone 'Asia/Tehran', 'YYYY-MM-DD"T"HH24:MI:SS"Z"')`,
+  test('formats UTC second-precision values', () => {
+    expect(prisma.getDateStringSQL('event_data.date_value', 'second')).toBe(
+      `strftime('%Y-%m-%dT%H:%M:%SZ', event_data.date_value)`,
     );
   });
 
   test('defaults to explicit UTC formatting regardless of unit when no timezone is given', () => {
     expect(prisma.getDateStringSQL('event_data.date_value')).toBe(
-      `to_char(event_data.date_value at time zone 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS"Z"')`,
+      `strftime('%Y-%m-%dT%H:%M:%SZ', event_data.date_value)`,
     );
   });
 });
 
 describe('getDateWeeklySQL timezone formatting', () => {
-  test('falls back to UTC instead of producing invalid SQL when no timezone is given', () => {
-    // Regression test: this used to interpolate `undefined` straight into `at time zone`.
+  test('formats weekly UTC buckets', () => {
     expect(prisma.getDateWeeklySQL('website_event.created_at')).toBe(
-      `concat(extract(dow from (website_event.created_at at time zone 'UTC')), ':', to_char((website_event.created_at at time zone 'UTC'), 'HH24'))`,
+      `strftime('%w:%H', website_event.created_at)`,
     );
   });
 
-  test('uses the given timezone when one is provided', () => {
+  test('converts named timezones', () => {
     expect(prisma.getDateWeeklySQL('website_event.created_at', 'Asia/Tehran')).toBe(
-      `concat(extract(dow from (website_event.created_at at time zone 'Asia/Tehran')), ':', to_char((website_event.created_at at time zone 'Asia/Tehran'), 'HH24'))`,
+      `strftime('%w:%H', timezone_datetime(website_event.created_at, 'Asia/Tehran'))`,
     );
   });
 });
@@ -183,4 +127,14 @@ describe('pagedRawQuery default ordering', () => {
     await prisma.pagedRawQuery('select * from thing', {}, { page: 1, pageSize: 2 });
     expect(queryRaw.mock.calls[1][0]).not.toMatch(/order by/);
   });
+});
+
+test('translates ordered percentiles for SQLite', async () => {
+  const queryRaw = vi.mocked((prisma.client as any).$queryRawUnsafe);
+  queryRaw.mockClear();
+  queryRaw.mockResolvedValue([]);
+
+  await prisma.rawQuery('select percentile_cont(0.75) within group (order by duration) as p75', {});
+
+  expect(queryRaw.mock.calls[0][0]).toBe('select percentile_cont(duration, 0.75) as p75');
 });

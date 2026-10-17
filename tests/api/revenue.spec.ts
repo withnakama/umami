@@ -102,9 +102,8 @@ test.describe('Revenue', () => {
       expect(total, type).toBeCloseTo(PURCHASE_TOTAL, 5);
     }
 
-    // The test image has no GeoIP database, so country/region are unresolved
-    // (null on Postgres, '' on ClickHouse's non-nullable String columns).
-    const unresolved = seed.db === 'clickhouse' ? '' : null;
+    // The test image has no GeoIP database, so country and region are null.
+    const unresolved = null;
     expect(byType.country.body).toEqual([{ name: unresolved, value: expect.anything() }]);
     expect(byType.region.body).toEqual([
       { country: unresolved, name: unresolved, value: expect.anything() },
@@ -117,7 +116,7 @@ test.describe('Revenue', () => {
     expect(asMap(byType.referrer.body)).toEqual({
       'google.com': 148.5,
       't.co': 178.5,
-      // No referrer is null on Postgres and '' on ClickHouse (see `unresolved` above).
+      // A missing referrer is null.
       [String(unresolved)]: 208.5,
     });
     expect(asMap(byType.channel.body)).toEqual({

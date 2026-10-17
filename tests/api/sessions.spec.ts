@@ -123,7 +123,7 @@ test.describe('Sessions', () => {
     expect(response.body).toMatchObject({
       id: seed.data.sessionId,
       websiteId: seed.website.id,
-      canDelete: seed.db === 'postgres',
+      canDelete: true,
       stitchedSessionCount: expect.any(Number),
     });
     expect(response.body.stitchedSessionCount).toBeGreaterThanOrEqual(1);
@@ -265,9 +265,7 @@ test.describe('Sessions', () => {
     let websiteId = '';
     let sessionId = '';
 
-    test.beforeAll(async ({ admin, api, seed }) => {
-      test.skip(seed.db === 'clickhouse', 'Session deletion requires relational storage');
-
+    test.beforeAll(async ({ admin, api }) => {
       websiteId = (await createWebsite(admin)).id;
 
       const sent = await api.post('/api/send', {

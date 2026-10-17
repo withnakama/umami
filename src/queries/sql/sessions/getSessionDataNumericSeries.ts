@@ -1,6 +1,4 @@
-import clickhouse from '@/lib/clickhouse';
 import { EVENT_TYPE } from '@/lib/constants';
-import { CLICKHOUSE, PRISMA, runQuery } from '@/lib/db';
 import prisma from '@/lib/prisma';
 import type { PropertyFilter, QueryFilters, TimeSeriesValue } from '@/lib/types';
 
@@ -15,10 +13,7 @@ export async function getSessionDataNumericSeries(
     propertyFilters?: PropertyFilter[],
   ]
 ): Promise<TimeSeriesValue[]> {
-  return runQuery({
-    [PRISMA]: () => relationalQuery(...args),
-    [CLICKHOUSE]: () => clickhouseQuery(...args),
-  });
+  return relationalQuery(...args);
 }
 
 async function relationalQuery(
@@ -72,61 +67,6 @@ async function relationalQuery(
       and session_data.data_type = 2
     group by 1
     order by 1
-    `,
-    { ...queryParams, propertyName, ...pfParams },
-    FUNCTION_NAME,
-  );
-}
-
-async function clickhouseQuery(
-  websiteId: string,
-  propertyName: string,
-  metric: 'sum' | 'avg' | 'count',
-  filters: QueryFilters,
-  propertyFilters: PropertyFilter[] = [],
-): Promise<{ t: string; y: number }[]> {
-  const { timezone = 'UTC', unit = 'day' } = filters;
-  const { rawQuery, getDateSQL, parseFilters, getPropertyFilterQuery } = clickhouse;
-  const { filterQuery, cohortQuery, queryParams } = parseFilters({
-    ...filters,
-    websiteId,
-    timezone,
-  });
-  const { sql: pfSQL, params: pfParams } = getPropertyFilterQuery(
-    propertyFilters,
-    'session',
-    timezone,
-  );
-  const aggSql =
-    metric === 'avg'
-      ? 'avg(session_data.number_value)'
-      : metric === 'count'
-        ? 'uniq(session_data.session_id)'
-        : 'sum(session_data.number_value)';
-
-  return rawQuery(
-    `
-    with filtered_sessions as (
-      select distinct website_event.session_id
-      from website_event
-      ${cohortQuery}
-      where website_event.website_id = {websiteId:UUID}
-        and website_event.created_at between {startDate:DateTime64} and {endDate:DateTime64}
-        and website_event.event_type != ${EVENT_TYPE.performance}
-      ${filterQuery}
-      ${pfSQL}
-    )
-    select
-      ${getDateSQL('session_data.created_at', unit, timezone)} as t,
-      ${aggSql} as y
-    from session_data final
-    join filtered_sessions
-      on filtered_sessions.session_id = session_data.session_id
-    where session_data.website_id = {websiteId:UUID}
-      and session_data.data_key = {propertyName:String}
-      and session_data.data_type = 2
-    group by t
-    order by t
     `,
     { ...queryParams, propertyName, ...pfParams },
     FUNCTION_NAME,

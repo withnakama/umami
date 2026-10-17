@@ -1,6 +1,4 @@
-import clickhouse from '@/lib/clickhouse';
 import { EVENT_TYPE } from '@/lib/constants';
-import { CLICKHOUSE, PRISMA, runQuery } from '@/lib/db';
 import prisma from '@/lib/prisma';
 import type { QueryFilters } from '@/lib/types';
 
@@ -19,10 +17,7 @@ export interface GoalResult {
 export async function getGoal(
   ...args: [websiteId: string, params: GoalParameters, filters: QueryFilters]
 ): Promise<GoalResult> {
-  return runQuery({
-    [PRISMA]: () => relationalQuery(...args),
-    [CLICKHOUSE]: () => clickhouseQuery(...args),
-  });
+  return relationalQuery(...args);
 }
 
 async function relationalQuery(
@@ -74,60 +69,6 @@ async function relationalQuery(
     ${joinSessionQuery}
     where website_event.website_id = {{websiteId::uuid}}
       and ${column} ${operator} {{value}}
-      ${dateQuery}
-      ${filterQuery}
-    `,
-    queryParams,
-  ).then(results => results?.[0]);
-}
-
-async function clickhouseQuery(
-  websiteId: string,
-  parameters: GoalParameters,
-  filters: QueryFilters,
-) {
-  const { startDate, endDate, type, value } = parameters;
-  const { rawQuery, parseFilters } = clickhouse;
-  const eventType = type === 'path' ? EVENT_TYPE.pageView : EVENT_TYPE.customEvent;
-  const column = type === 'path' ? 'url_path' : 'event_name';
-
-  let operator = '=';
-  let paramValue = value;
-  if (value.startsWith('*') || value.endsWith('*')) {
-    operator = 'like';
-    paramValue = value.replace(/^\*|\*$/g, '%');
-  }
-
-  const { filterQuery, dateQuery, cohortQuery, queryParams } = parseFilters({
-    ...filters,
-    websiteId,
-    value: paramValue,
-    startDate,
-    endDate,
-    eventType,
-  });
-
-  const excludeEventTypeFilterQuery = filterQuery
-    .split('\n')
-    .filter(filter => !filter.includes('event_type'))
-    .join('\n')
-    .trim();
-
-  return rawQuery(
-    `
-    select count(distinct session_id) as num,
-    (
-      select count(distinct session_id)
-      from website_event
-      ${cohortQuery}
-      where website_id = {websiteId:UUID}
-        ${dateQuery}
-        ${excludeEventTypeFilterQuery}
-    ) as total
-    from website_event
-    ${cohortQuery}
-    where website_id = {websiteId:UUID}
-      and ${column} ${operator} {value:String}
       ${dateQuery}
       ${filterQuery}
     `,

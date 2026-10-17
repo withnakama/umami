@@ -26,12 +26,6 @@ const PROVIDER_HEADERS = [
     regionHeader: 'cf-region-code',
     cityHeader: 'cf-ipcity',
   },
-  // Vercel headers
-  {
-    countryHeader: 'x-vercel-ip-country',
-    regionHeader: 'x-vercel-ip-country-region',
-    cityHeader: 'x-vercel-ip-city',
-  },
   // CloudFront headers
   {
     countryHeader: 'cloudfront-viewer-country',

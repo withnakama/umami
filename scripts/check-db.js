@@ -1,26 +1,14 @@
 /* eslint-disable no-console */
 import 'dotenv/config';
 import { execSync } from 'node:child_process';
-import { PrismaPg } from '@prisma/adapter-pg';
+import { PrismaBetterSqlite3 } from '@prisma/adapter-better-sqlite3';
 import chalk from 'chalk';
 import { PrismaClient } from '../generated/prisma/client.js';
-
-const MIN_VERSION = '9.4.0';
-const MIN_VERSION_NUM = 90400;
 
 if (process.env.SKIP_DB_CHECK) {
   console.log('Skipping database check.');
   process.exit(0);
 }
-
-const url = new URL(process.env.DATABASE_URL);
-
-const adapter = new PrismaPg(
-  { connectionString: url.toString() },
-  { schema: url.searchParams.get('schema') },
-);
-
-const prisma = new PrismaClient({ adapter });
 
 function success(msg) {
   console.log(chalk.greenBright(`✓ ${msg}`));
@@ -33,6 +21,8 @@ function error(msg) {
 async function checkEnv() {
   if (!process.env.DATABASE_URL) {
     throw new Error('DATABASE_URL is not defined.');
+  } else if (!process.env.DATABASE_URL.startsWith('file:')) {
+    throw new Error('DATABASE_URL must be a SQLite file: URL.');
   } else {
     success('DATABASE_URL is defined.');
   }
@@ -40,33 +30,25 @@ async function checkEnv() {
   if (process.env.REDIS_URL) {
     success('REDIS_URL is defined.');
   }
+
+  if (!process.env.APP_SECRET) {
+    throw new Error('APP_SECRET is not defined.');
+  }
 }
 
 async function checkConnection() {
+  const prisma = new PrismaClient({
+    adapter: new PrismaBetterSqlite3({ url: process.env.DATABASE_URL }),
+  });
   try {
     await prisma.$connect();
 
     success('Database connection successful.');
   } catch (e) {
     throw new Error(`Unable to connect to the database: ${e.message}`);
+  } finally {
+    await prisma.$disconnect();
   }
-}
-
-async function checkDatabaseVersion() {
-  const query = await prisma.$queryRaw`select current_setting('server_version_num') as version_num`;
-  const version = Number(query[0]?.version_num);
-
-  if (!Number.isFinite(version)) {
-    throw new Error('Unable to determine database version.');
-  }
-
-  if (version < MIN_VERSION_NUM) {
-    throw new Error(
-      `Database version is not compatible. Please upgrade to ${MIN_VERSION} or greater.`,
-    );
-  }
-
-  success('Database version check successful.');
 }
 
 async function applyMigration() {
@@ -84,7 +66,7 @@ async function applyMigration() {
 
 (async () => {
   let err = false;
-  for (const fn of [checkEnv, checkConnection, checkDatabaseVersion, applyMigration]) {
+  for (const fn of [checkEnv, checkConnection, applyMigration]) {
     try {
       await fn();
     } catch (e) {

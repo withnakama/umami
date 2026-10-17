@@ -1,6 +1,4 @@
-import clickhouse from '@/lib/clickhouse';
 import { EVENT_TYPE } from '@/lib/constants';
-import { CLICKHOUSE, PRISMA, runQuery } from '@/lib/db';
 import prisma from '@/lib/prisma';
 import type { QueryFilters, RealtimeActivity } from '@/lib/types';
 
@@ -9,10 +7,7 @@ const FUNCTION_NAME = 'getRealtimeActivity';
 export async function getRealtimeActivity(
   ...args: [websiteId: string, filters: QueryFilters]
 ): Promise<RealtimeActivity[]> {
-  return runQuery({
-    [PRISMA]: () => relationalQuery(...args),
-    [CLICKHOUSE]: () => clickhouseQuery(...args),
-  });
+  return relationalQuery(...args);
 }
 
 async function relationalQuery(websiteId: string, filters: QueryFilters) {
@@ -46,43 +41,6 @@ async function relationalQuery(websiteId: string, filters: QueryFilters) {
     ${dateQuery}
     order by website_event.created_at desc
     limit 100
-    `,
-    queryParams,
-    FUNCTION_NAME,
-  );
-}
-
-async function clickhouseQuery(
-  websiteId: string,
-  filters: QueryFilters,
-): Promise<RealtimeActivity[]> {
-  const { rawQuery, parseFilters } = clickhouse;
-  const { queryParams, filterQuery, cohortQuery, dateQuery } = parseFilters({
-    ...filters,
-    websiteId,
-  });
-
-  return rawQuery(
-    `
-        select
-            session_id as sessionId,
-            event_name as eventName,
-            created_at as createdAt,
-            browser,
-            os,
-            device,
-            country,
-            url_path as urlPath,
-            referrer_domain as referrerDomain,
-            hostname
-        from website_event
-        ${cohortQuery}
-        where website_id = {websiteId:UUID}
-          and event_type != ${EVENT_TYPE.performance}
-        ${filterQuery}
-        ${dateQuery}
-        order by createdAt desc
-        limit 100
     `,
     queryParams,
     FUNCTION_NAME,
