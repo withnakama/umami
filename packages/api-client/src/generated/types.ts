@@ -846,26 +846,6 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
-  '/api/scripts/telemetry': {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    /**
-     * Get the installation telemetry script
-     * @description Returns JavaScript that sends the application version through a telemetry pixel, or an inactive script when telemetry is disabled.
-     */
-    get: operations['getScriptsTelemetry'];
-    put?: never;
-    post?: never;
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
   '/api/send': {
     parameters: {
       query?: never;
@@ -5964,7 +5944,6 @@ export interface operations {
             pixelsUrl: string;
             privateMode: boolean;
             sessionDeletionEnabled: boolean;
-            telemetryDisabled: boolean;
             trackerScriptName: string;
             updatesDisabled: boolean;
           };
@@ -8779,26 +8758,6 @@ export interface operations {
            *     }
            */
           'application/json': components['schemas']['ApiError'];
-        };
-      };
-    };
-  };
-  getScriptsTelemetry: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    requestBody?: never;
-    responses: {
-      /** @description Successful response. The response shape is inferred as free-form because the handler does not expose a reusable response schema. */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'text/javascript': string;
         };
       };
     };

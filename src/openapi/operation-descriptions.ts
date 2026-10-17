@@ -267,11 +267,6 @@ export const operationDescriptions: Record<string, OperationDescription> = {
     description:
       'Stores session replay events or heatmap clicks and scrolls for a website, using a valid tracking cache token to identify the session and visit.',
   },
-  'GET /api/scripts/telemetry': {
-    summary: 'Get the installation telemetry script',
-    description:
-      'Returns JavaScript that sends the application version through a telemetry pixel, or an inactive script when telemetry is disabled.',
-  },
   'POST /api/send': {
     summary: 'Send tracking data',
     description:

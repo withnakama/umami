@@ -37,9 +37,6 @@ const operation1 = defineOperation({
                 sessionDeletionEnabled: {
                   type: 'boolean',
                 },
-                telemetryDisabled: {
-                  type: 'boolean',
-                },
                 trackerScriptName: {
                   type: 'string',
                 },
@@ -53,7 +50,6 @@ const operation1 = defineOperation({
                 'pixelsUrl',
                 'privateMode',
                 'sessionDeletionEnabled',
-                'telemetryDisabled',
                 'trackerScriptName',
                 'updatesDisabled',
               ],

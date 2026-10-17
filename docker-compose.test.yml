@@ -32,7 +32,6 @@ x-umami-env: &umami-env
   TWO_FACTOR_ENCRYPTION_KEY: 0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef
   # Playwright/curl user agents are classified as bots; without this /api/send silently drops events.
   DISABLE_BOT_CHECK: "1"
-  DISABLE_TELEMETRY: "1"
   DISABLE_UPDATES: "1"
   MCP_ENABLED: "1"
 

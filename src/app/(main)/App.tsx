@@ -20,7 +20,7 @@ import { UpdateNotice } from './UpdateNotice';
 export function App({ children }) {
   const { user, isLoading, error } = useLoginQuery();
   const config = useConfig();
-  const { pathname, router, teamId } = useNavigation();
+  const { router, teamId } = useNavigation();
   const { isLoading: isTeamLoading, error: teamError } = useTeamQuery(teamId);
   const { data: twoFactorStatus } = useTwoFactorStatusQuery(!!user);
   const needsTwoFactorSetup = !!(twoFactorStatus?.isRequired && !twoFactorStatus?.isEnabled);
@@ -81,9 +81,6 @@ export function App({ children }) {
       </Column>
       {needsTwoFactorSetup && <TwoFactorSetupModal required={true} />}
       <UpdateNotice user={user} config={config} />
-      {process.env.NODE_ENV === 'production' && !pathname.includes('/share/') && (
-        <Script src={`${process.env.basePath || ''}/telemetry.js`} />
-      )}
       {process.env.selfTrack && (
         <Script
           async

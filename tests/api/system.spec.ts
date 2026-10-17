@@ -16,15 +16,7 @@ test.describe('System', () => {
       privateMode: false,
       sessionDeletionEnabled: true,
     });
-    expect(typeof response.body.telemetryDisabled).toBe('boolean');
     expect(typeof response.body.updatesDisabled).toBe('boolean');
   });
 
-  test('GET /api/scripts/telemetry serves a javascript response', async ({ api }) => {
-    const response = await api.get('/api/scripts/telemetry');
-
-    expect(response.status).toBe(200);
-    expect(response.headers['content-type']).toContain('javascript');
-    expect(response.text.length).toBeGreaterThan(0);
-  });
 });

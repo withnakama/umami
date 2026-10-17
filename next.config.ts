@@ -234,10 +234,6 @@ export default withNextIntl({
         destination: '/compat/api/websites/:websiteId/reports',
       },
       {
-        source: '/telemetry.js',
-        destination: '/api/scripts/telemetry',
-      },
-      {
         source: '/teams/:teamId/:path*',
         destination: '/:path*',
       },
